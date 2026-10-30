@@ -1,0 +1,28 @@
+# Settings for cargo-about, which writes THIRD-PARTY-NOTICES.txt.
+# Regenerate it whenever Cargo.lock changes:
+#   cargo install cargo-about --locked --features cli
+#   cargo about generate -m crates/app/Cargo.toml tools/third-party-notices.hbs -o THIRD-PARTY-NOTICES.txt
+
+# The licences the libraries built into the exe are allowed to have. A
+# library under anything else makes the command fail, so a new kind of
+# licence is looked at before it ships.
+accepted = [
+    "MIT",
+    "Apache-2.0",
+    "Zlib",
+    "Unlicense",
+    "Unicode-3.0",
+    "BSL-1.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "0BSD",
+    "ISC",
+    "CDLA-Permissive-2.0",
+    "OFL-1.1",
+    "Ubuntu-font-1.0",
+]
+
+# Only what is built into the Windows exe that is released.
+targets = ["x86_64-pc-windows-msvc"]
+ignore-build-dependencies = true
+ignore-dev-dependencies = true

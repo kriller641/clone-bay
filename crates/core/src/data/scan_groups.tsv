@@ -1,0 +1,149 @@
+# Built by tools/make_group_list.py from CCP's static data, build 3607705 (2026-10-12).
+# Item groups a probe scan filter can hold: id<TAB>category<TAB>published<TAB>name.
+324	Ship	1	Assault Frigate
+1201	Ship	1	Attack Battlecruiser
+27	Ship	1	Battleship
+898	Ship	1	Black Ops
+1202	Ship	1	Blockade Runner
+883	Ship	1	Capital Industrial Ship
+29	Ship	1	Capsule
+547	Ship	1	Carrier
+2001	Ship	0	Citizen Ships
+419	Ship	1	Combat Battlecruiser
+906	Ship	1	Combat Recon Ship
+5120	Ship	1	Command Carrier
+1534	Ship	1	Command Destroyer
+540	Ship	1	Command Ship
+237	Ship	1	Corvette
+830	Ship	1	Covert Ops
+26	Ship	1	Cruiser
+380	Ship	1	Deep Space Transport
+420	Ship	1	Destroyer
+485	Ship	1	Dreadnought
+893	Ship	1	Electronic Attack Ship
+381	Ship	0	Elite Battleship
+543	Ship	1	Exhumer
+4902	Ship	1	Expedition Command Ship
+1283	Ship	1	Expedition Frigate
+1972	Ship	1	Flag Cruiser
+1538	Ship	1	Force Auxiliary
+833	Ship	1	Force Recon Ship
+513	Ship	1	Freighter
+25	Ship	1	Frigate
+28	Ship	1	Hauler
+358	Ship	1	Heavy Assault Cruiser
+894	Ship	1	Heavy Interdiction Cruiser
+941	Ship	1	Industrial Command Ship
+831	Ship	1	Interceptor
+541	Ship	1	Interdictor
+902	Ship	1	Jump Freighter
+4594	Ship	1	Lancer Dreadnought
+832	Ship	1	Logistics
+1527	Ship	1	Logistics Frigate
+900	Ship	1	Marauder
+463	Ship	1	Mining Barge
+1022	Ship	1	Prototype Exploration Ship
+31	Ship	1	Shuttle
+5087	Ship	1	Special Edition Yachts
+834	Ship	1	Stealth Bomber
+963	Ship	1	Strategic Cruiser
+659	Ship	1	Supercarrier
+1305	Ship	1	Tactical Destroyer
+30	Ship	1	Titan
+100	Drone	1	Combat Drone
+639	Drone	1	Electronic Warfare Drone
+544	Drone	1	Energy Neutralizer Drone
+1023	Drone	0	Fighter Bomber
+549	Drone	0	Fighter Drone
+5239	Drone	1	Hybrid Drone
+640	Drone	1	Logistic Drone
+101	Drone	1	Mining Drone
+97	Drone	0	Proximity Drone
+299	Drone	0	Repair Drone
+1159	Drone	1	Salvage Drone
+641	Drone	1	Stasis Webifying Drone
+470	Drone	0	Unanchoring Drone
+545	Drone	0	Warp Scrambling Drone
+1653	Fighter	1	Heavy Fighter
+1652	Fighter	1	Light Fighter
+4779	Fighter	1	Structure Heavy Fighter
+4777	Fighter	1	Structure Light Fighter
+4778	Fighter	1	Structure Support Fighter
+1537	Fighter	1	Support Fighter
+2005	Deployable	1	Deployable Advertisement
+1273	Deployable	1	Encounter Surveillance System
+4499	Deployable	1	FW Listening Outpost
+4477	Deployable	1	FW Propaganda Broadcast Structure
+4810	Deployable	1	Mercenary Den
+4137	Deployable	1	Mobile Analysis Beacon
+1249	Deployable	1	Mobile Cyno Inhibitor
+4093	Deployable	1	Mobile Cynosural Beacon
+1274	Deployable	0	Mobile Decoy Unit
+1246	Deployable	1	Mobile Depot
+1149	Deployable	0	Mobile Jump Disruptor
+1276	Deployable	1	Mobile Micro Jump Unit
+4107	Deployable	1	Mobile Observatory
+4913	Deployable	1	Mobile Phase Anchor
+1275	Deployable	1	Mobile Scan Inhibitor
+1247	Deployable	1	Mobile Siphon Unit
+1250	Deployable	1	Mobile Tractor Unit
+1297	Deployable	1	Mobile Vault
+361	Deployable	1	Mobile Warp Disruptor
+1312	Deployable	1	Observatory Structures
+1409	Structure	0	Administration Hub
+1410	Structure	0	Advertisement Center
+1657	Structure	1	Citadel
+1404	Structure	1	Engineering Complex
+1405	Structure	0	Laboratory
+1407	Structure	0	Observatory Array
+4644	Structure	0	Pirate Forward Operating Base
+1406	Structure	1	Refinery
+2017	Structure	1	Upwell Cyno Beacon
+2016	Structure	1	Upwell Cyno Jammer
+1408	Structure	1	Upwell Jump Bridge
+2015	Structure	0	Upwell Monument
+4744	Structure	1	Upwell Moon Drill
+1876	Structure	0	♦ Engineering Complex
+1924	Structure	0	♦ Stronghold
+397	Starbase	1	Assembly Array
+1282	Starbase	1	Compression Array
+365	Starbase	1	Control Tower
+471	Starbase	1	Corporate Hangar Array
+838	Starbase	1	Cynosural Generator Array
+839	Starbase	1	Cynosural System Jammer
+439	Starbase	1	Electronic Warfare Battery
+837	Starbase	1	Energy Neutralizing Battery
+445	Starbase	0	Force Field Array
+707	Starbase	1	Jump Portal Array
+413	Starbase	1	Laboratory
+710	Starbase	0	Logistics Array
+449	Starbase	1	Mobile Hybrid Sentry
+430	Starbase	1	Mobile Laser Sentry
+417	Starbase	1	Mobile Missile Sentry
+414	Starbase	0	Mobile Power Core
+426	Starbase	1	Mobile Projectile Sentry
+438	Starbase	1	Mobile Reactor
+418	Starbase	0	Mobile Shield Generator
+364	Starbase	0	Mobile Storage
+416	Starbase	1	Moon Mining
+1212	Starbase	1	Personal Hangar
+311	Starbase	1	Reprocessing Array
+709	Starbase	1	Scanner Array
+440	Starbase	1	Sensor Dampening Battery
+444	Starbase	1	Shield Hardening Array
+363	Starbase	1	Ship Maintenance Array
+404	Starbase	1	Silo
+441	Starbase	1	Stasis Webification Battery
+480	Starbase	0	Stealth Emitter Array
+840	Starbase	0	Structure Repair Array
+877	Starbase	0	Target Painting Battery
+473	Starbase	1	Tracking Array
+443	Starbase	1	Warp Scrambling Battery
+1004	Sovereignty Structures	0	Defense Bunkers
+1005	Sovereignty Structures	0	Sovereignty Blockade Unit
+1012	Sovereignty Structures	1	Sovereignty Hub
+1003	Sovereignty Structures	1	Territorial Claim Unit
+1106	Orbitals	1	Orbital Construction Platform
+1025	Orbitals	0	Orbital Infrastructure
+4736	Orbitals	1	Skyhook
+1073	Orbitals	0	Test Orbitals

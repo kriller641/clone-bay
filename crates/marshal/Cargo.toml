@@ -1,0 +1,13 @@
+[package]
+name = "clone-bay-marshal"
+description = "Strict reader and writer for CCP's blue.marshal format"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+# Test-only cross-check. Must never become a runtime dependency.
+blue-marshal = "1.0.1"

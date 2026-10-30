@@ -1,0 +1,16 @@
+/target/
+mutants.out*/
+
+# Real EVE settings files for local tests. They hold character and channel
+# IDs and must never be committed.
+/fixtures/
+
+__pycache__/
+*.pyc
+
+# Internal docs and working notes, kept on the developer's PC only.
+/docs/
+/CLAUDE.md
+/CLAUDE.local.md
+/.claude/
+/claude-code-prompt-template.md

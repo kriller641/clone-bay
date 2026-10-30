@@ -1,0 +1,444 @@
+# Built by tools/make_type_list.py from CCP's static data, build 3586130 (2026-10-07).
+# Published ship and structure types: id<TAB>name, sorted by name.
+47513	'Draccous' Fortizar
+47514	'Horizon' Fortizar
+47515	'Marginis' Fortizar
+47512	'Moreau' Fortizar
+47516	'Prometheus' Fortizar
+24692	Abaddon
+22448	Absolution
+2836	Adrestia
+23919	Aeon
+95741	Akoman
+32872	Algos
+91849	Algos Navy Issue
+78366	Alligator
+11134	Amarr Shuttle
+11188	Anathema
+89807	Anhinga
+28848	Anshar
+35841	Ansiblex Jump Bridge
+642	Apocalypse
+11936	Apocalypse Imperial Issue
+17726	Apocalypse Navy Issue
+37604	Apostle
+29266	Apotheosis
+11969	Arazu
+628	Arbitrator
+23757	Archon
+11202	Ares
+28850	Ark
+643	Armageddon
+11938	Armageddon Imperial Issue
+32305	Armageddon Navy Issue
+17922	Ashimmu
+22466	Astarte
+33468	Astero
+35832	Astrahus
+35835	Athanor
+608	Atron
+625	Augoror
+29337	Augoror Navy Issue
+81040	Avalanche
+11567	Avatar
+78576	Azariel
+35826	Azbel
+88001	Babaroga
+648	Badger
+77283	Bane
+582	Bantam
+33820	Barghest
+11985	Basilisk
+630	Bellicose
+74316	Bestla
+1944	Bestower
+17920	Bhaalgorn
+37480	Bifrost
+632	Blackbird
+64034	Boobook
+34328	Bowhead
+598	Breacher
+12013	Broadsword
+16229	Brutix
+33151	Brutix Navy Issue
+599	Burst
+12731	Bustard
+11192	Buzzard
+42246	Caedes
+45647	Caiman
+17619	Caldari Navy Hookbill
+672	Caldari Shuttle
+32788	Cambion
+670	Capsule
+33328	Capsule - Genolution 'Auroral' 197-variant
+621	Caracal
+17634	Caracal Navy Issue
+16240	Catalyst
+73796	Catalyst Navy Issue
+633	Celestis
+85086	Cenotaph
+11993	Cerberus
+33675	Chameleon
+20185	Charon
+11182	Cheetah
+42243	Chemosh
+23915	Chimera
+33397	Chremoas
+11196	Claw
+22468	Claymore
+85229	Cobra
+16236	Coercer
+73789	Coercer Navy Issue
+583	Condor
+34317	Confessor
+32876	Corax
+91857	Corax Navy Issue
+16238	Cormorant
+73795	Cormorant Navy Issue
+34496	Council Diplomatic Shuttle
+17476	Covetor
+12729	Crane
+11176	Crow
+2161	Crucifier
+37453	Crucifier Navy Issue
+17926	Cruor
+11184	Crusader
+20125	Curse
+77726	Cybele
+16231	Cyclone
+72811	Cyclone Fleet Issue
+17720	Cynabal
+42242	Dagon
+47269	Damavik
+22474	Damnation
+17928	Daredevil
+37457	Deacon
+12023	Deimos
+81046	Deluge
+12017	Devoter
+645	Dominix
+32307	Dominix Navy Issue
+32874	Dragoon
+91775	Dragoon Navy Issue
+24698	Drake
+33153	Drake Navy Issue
+17932	Dramiel
+52254	Draugur
+49711	Drekavac
+12011	Eagle
+3532	Echelon
+617	Echo
+37135	Endurance
+44995	Enforcer
+12044	Enyo
+22442	Eos
+655	Epithal
+671	Erebus
+22460	Eris
+32790	Etana
+589	Executioner
+634	Exequror
+29344	Exequror Navy Issue
+11957	Falcon
+17841	Federation Navy Comet
+20189	Fenrir
+16227	Ferox
+72812	Ferox Navy Issue
+35781	Fiend
+22464	Flycatcher
+35833	Fortizar
+32207	Freki
+92824	Gaia
+11129	Gallente Shuttle
+33816	Garmur
+74141	Geri
+17715	Gila
+3756	Gnosis
+11940	Gold Magnate
+28710	Golem
+21097	Goru's Shuttle
+584	Griffin
+37455	Griffin Navy Issue
+11987	Guardian
+11011	Guardian-Vexor
+21628	Guristas Shuttle
+24696	Harbinger
+33155	Harbinger Navy Issue
+11381	Harpy
+11379	Hawk
+35683	Hecate
+22852	Hel
+11172	Helios
+33079	Hematos
+22452	Heretic
+605	Heron
+72904	Heron Navy Issue
+651	Hoarder
+12034	Hound
+77281	Hubris
+11961	Huginn
+22544	Hulk
+24702	Hurricane
+33157	Hurricane Fleet Issue
+48636	Hydra
+11387	Hyena
+24690	Hyperion
+601	Ibis
+52252	Ikitursa
+607	Imicus
+72913	Imicus Navy Issue
+615	Immolator
+35779	Imp
+596	Impairor
+12753	Impel
+17703	Imperial Navy Slicer
+594	Incursus
+590	Inquisitor
+30842	InterBus Shuttle
+12042	Ishkur
+12005	Ishtar
+657	Iteron Mark V
+34828	Jackdaw
+11400	Jaguar
+77284	Karura
+35834	Keepstar
+11174	Keres
+602	Kestrel
+78369	Khizriel
+49710	Kikimora
+37458	Kirin
+11194	Kitsune
+45649	Komodo
+28661	Kronos
+654	Kryos
+11971	Lachesis
+60764	Laelaps
+29986	Legion
+33513	Leopard
+47271	Leshak
+3764	Leviathan
+37606	Lif
+45645	Loggerhead
+29990	Loki
+17738	Machariel
+22548	Mackinaw
+24694	Maelstrom
+29248	Magnate
+72907	Magnate Navy Issue
+37483	Magus
+11186	Malediction
+3516	Malice
+624	Maller
+78367	Mamba
+652	Mammoth
+12032	Manticore
+44996	Marshal
+12747	Mastodon
+609	Maulus
+37456	Maulus Navy Issue
+641	Megathron
+13202	Megathron Federate Issue
+17728	Megathron Navy Issue
+78333	Mekubal
+603	Merlin
+77114	Metamorphosis
+81826	Metenox Moon Drill
+656	Miasmos
+32811	Miasmos Amastris Edition
+4363	Miasmos Quafe Ultra Edition
+4388	Miasmos Quafe Ultramarine Edition
+32209	Mimir
+11132	Minmatar Shuttle
+37605	Minokawa
+623	Moa
+42241	Molok
+45534	Monitor
+33395	Moracha
+92283	Moreau YC128 Campaign Bus
+19724	Moros
+73792	Moros Navy Issue
+12015	Muninn
+24700	Myrmidon
+72869	Myrmidon Navy Issue
+4306	Naga
+19722	Naglfar
+73787	Naglfar Fleet Issue
+592	Navitas
+11377	Nemesis
+650	Nereus
+52250	Nergal
+33472	Nestor
+24483	Nidhoggur
+22470	Nighthawk
+17736	Nightmare
+37607	Ninazu
+2998	Noctis
+28846	Nomad
+23913	Nyx
+20187	Obelisk
+12745	Occator
+89607	Odysseus
+2006	Omen
+17709	Omen Navy Issue
+11989	Oneiros
+11995	Onyx
+635	Opux Luxury Yacht
+4302	Oracle
+28606	Orca
+33818	Orthrus
+620	Osprey
+29340	Osprey Navy Issue
+89649	Outrider
+44993	Pacifier
+28659	Paladin
+22440	Panther
+91174	Perseverance
+17718	Phantasm
+35840	Pharolux Cyno Beacon
+12021	Phobos
+19726	Phoenix
+73793	Phoenix Navy Issue
+11965	Pilgrim
+89240	Pioneer
+89647	Pioneer Consortium Issue
+37481	Pontifex
+42244	Porpoise
+47466	Praxis
+2863	Primae
+586	Probe
+72903	Probe Fleet Issue
+17480	Procurer
+16233	Prophecy
+72872	Prophecy Navy Issue
+12733	Prorator
+33697	Prospect
+29988	Proteus
+20183	Providence
+12735	Prowler
+597	Punisher
+12038	Purifier
+85236	Python
+42245	Rabisu
+23773	Ragnarok
+60765	Raiju
+35825	Raitaru
+11963	Rapier
+11178	Raptor
+17918	Rattlesnake
+638	Raven
+17636	Raven Navy Issue
+26840	Raven State Issue
+588	Reaper
+22428	Redeemer
+17812	Republic Fleet Firetail
+11393	Retribution
+17478	Retriever
+19720	Revelation
+73790	Revelation Navy Issue
+3514	Revenant
+28844	Rhea
+587	Rifter
+92284	Roden YC128 Campaign Bus
+49712	Rodiva
+24688	Rokh
+11959	Rook
+28352	Rorqual
+629	Rupture
+22456	Sabre
+12019	Sacrilege
+92822	Salvation
+87381	Sarathiel
+37460	Scalpel
+11978	Scimitar
+640	Scorpion
+32309	Scorpion Navy Issue
+631	Scythe
+29336	Scythe Fleet Issue
+11190	Sentinel
+78414	Shapash
+85062	Sidewinder
+19744	Sigil
+11942	Silver Magnate
+92823	Simurgh
+22430	Sin
+22546	Skiff
+89808	Skua
+54731	Skybreaker
+585	Slasher
+22444	Sleipnir
+35827	Sotiyo
+81008	Squall
+622	Stabber
+17713	Stabber Fleet Issue
+11198	Stiletto
+37482	Stork
+54732	Stormbringer
+33470	Stratios
+33553	Stratios Emergency Responder
+17924	Succubus
+42685	Sunesis
+34562	Svipul
+33081	Taipan
+4308	Talos
+32878	Talwar
+91858	Talwar Fleet Issue
+11200	Taranis
+35836	Tatara
+649	Tayra
+639	Tempest
+17732	Tempest Fleet Issue
+26842	Tempest Tribal Issue
+37534	Tenebrex Cyno Jammer
+29984	Tengu
+92282	Tenzin YC128 Campaign Bus
+37459	Thalia
+23911	Thanatos
+85087	Tholos
+627	Thorax
+16242	Thrasher
+73794	Thrasher Fleet Issue
+54733	Thunderchild
+48635	Tiamat
+591	Tormentor
+4310	Tornado
+81047	Torrent
+593	Tristan
+644	Typhoon
+32311	Typhoon Fleet Issue
+40340	Upwell Palatine Keepstar
+2834	Utu
+11999	Vagabond
+77288	Valravn
+3518	Vangel
+42126	Vanquisher
+28665	Vargur
+47270	Vedmak
+42124	Vehement
+606	Velator
+42125	Vendetta
+11365	Vengeance
+32880	Venture
+89648	Venture Consortium Issue
+626	Vexor
+17843	Vexor Navy Issue
+12743	Viator
+45531	Victor
+34590	Victorieux Luxury Yacht
+3766	Vigil
+37454	Vigil Fleet Issue
+17722	Vigilant
+17740	Vindicator
+33083	Violator
+45530	Virtuoso
+22446	Vulture
+33673	Whiptail
+22436	Widow
+11371	Wolf
+17930	Worm
+653	Wreathe
+23917	Wyvern
+92825	Ymir
+49713	Zarmazd
+12003	Zealot
+2078	Zephyr
+52907	Zirnitra

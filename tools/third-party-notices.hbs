@@ -1,0 +1,206 @@
+Clone Bay: third-party notices
+================================================================================
+
+Clone Bay is released under the MIT licence (see LICENSE). This file gives
+credit to the work it builds on and carries the licence notices of everything
+that is part of the released program.
+
+Part 1 credits the projects Clone Bay builds on. Part 2 lists the
+libraries built into the program, with their licences.
+
+
+================================================================================
+PART 1: WHAT CLONE BAY IS BUILT ON
+================================================================================
+
+EVE Online and CCP
+------------------
+
+    © 2014 CCP hf. All rights reserved. "EVE", "EVE Online", "CCP", and all
+    related logos and images are trademarks or registered trademarks of
+    CCP hf.
+
+Clone Bay is a third-party tool. It is not made, endorsed or supported by
+CCP hf., and CCP is not responsible for it or for anything it does.
+
+The program reads and writes the settings files the EVE Online client keeps
+on the player's own computer. It also uses two things CCP makes available to
+third-party developers under its Developer License Agreement
+(https://developers.eveonline.com/license-agreement):
+
+  - The names of ships and structures built into the program come from CCP's
+    Static Data Export (https://developers.eveonline.com/static-data). Those
+    names are CCP's.
+  - Character names, and the names of item types not in that list, are looked
+    up from CCP's ESI service (https://esi.evetech.net).
+
+
+carbonengine/blue, by CCP Games
+-------------------------------
+https://github.com/carbonengine/blue
+
+The reader and writer for the settings file format follow the format as
+implemented in Marshal.cpp of this project.
+
+    MIT License
+
+    Copyright (c) 2026 CCP Games
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+
+
+blue-marshal-rs, by TrueBrain
+-----------------------------
+https://github.com/TrueBrain/blue-marshal-rs
+
+A Rust version of the same format. The reader and writer in Clone Bay were
+written by following it, by way of a Python version kept in
+reference/eanm_sync.py. The library itself is used only by this project's
+tests, to check its own reader and writer against; it is not part of the
+released program.
+
+    MIT License
+
+    Copyright (c) 2026 TrueBrain
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+
+    ---
+
+    This library is ported from https://github.com/carbonengine/blue/blob/release/2.x/src/Marshal.cpp:
+
+    MIT License
+
+    Copyright (c) 2026 CCP Games
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+EVE Wrench, by Tim Kunze
+------------------------
+https://github.com/eve-wrench/eve-wrench-app
+
+Used as a guide to what the settings mean. These follow it: which settings
+belong to which group when copying, the ready-made probe formations and the
+limits on a formation, balancing a formation with a counterweight probe, which
+way north, west and up lie in a stored probe position, and the line in
+prefs.ini for "always show bracket text".
+
+EVE Wrench's README states that it is under the MIT licence. Its repository
+had no licence file of its own when this was written (2026-10-12), so the
+standard MIT text is given here, with the author named in its Cargo.toml:
+
+    MIT License
+
+    Copyright (c) Tim Kunze
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+
+
+EANM, by Bertral
+----------------
+https://github.com/FontaineRiant/EANM
+
+The Python script this project grew from (reference/eanm_sync.py) began as a
+replica of EANM's copying of settings between files.
+
+    MIT License
+
+    Copyright (c) 2017 Bertral
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+
+
+================================================================================
+PART 2: LIBRARIES AND FONTS BUILT INTO THE PROGRAM
+================================================================================
+
+Written by cargo-about. Each licence is followed by the libraries it covers.
+The fonts are the ones the egui library carries (epaint_default_fonts).
+
+How many libraries each licence covers:
+
+{{#each overview}}
+  {{{name}}} ({{{id}}}): {{count}}
+{{/each}}
+
+{{#each licenses}}
+--------------------------------------------------------------------------------
+{{{name}}} ({{{id}}})
+
+Used by:
+{{#each used_by}}
+  {{{crate.name}}} {{{crate.version}}}{{#if crate.repository}}  {{{crate.repository}}}{{/if}}
+{{/each}}
+
+{{{text}}}
+
+{{/each}}

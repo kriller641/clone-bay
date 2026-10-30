@@ -1,0 +1,21 @@
+[package]
+name = "clone-bay"
+description = "Copy and edit EVE Online settings files"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+clone-bay-core.workspace = true
+eframe = { version = "0.36", default-features = false, features = ["accesskit", "default_fonts", "glow"] }
+egui_extras = { version = "0.36", default-features = false }
+arboard = { version = "3.6", default-features = false }
+
+[dev-dependencies]
+tempfile = "3"
+# Builds settings files for tests.
+clone-bay-marshal.workspace = true
+# Drives the real UI in tests without opening a window.
+egui_kittest = "0.36"

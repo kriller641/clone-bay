@@ -1,0 +1,32 @@
+# Mutation testing (cargo-mutants), run before a release.
+
+# The `mutants` build profile (root Cargo.toml) leaves out debug information.
+# Measured on 2026-10-12: about 12% quicker on ten mutants of `copy_flow.rs`,
+# about 5% on `safe_write.rs`. nextest was tried the same day and not kept:
+# it was quicker for the app (5.1 s to 4.1 s a mutant) but slower for core
+# (3.1 s to 4.2 s), where most of the mutants are.
+profile = "mutants"
+
+# The code that only draws is left out (decided with the user on
+# 2026-10-12). It was about 570 of 1,950 mutants, and at the full run before
+# v0.1.0 nearly all of its survivors only moved pixels or picked a colour,
+# which the UI tests can't see. What those files decide is still covered by
+# the test suite; it just isn't mutated. To mutate them anyway, add
+# `--no-config --profile mutants -f <file>`.
+exclude_globs = [
+    "crates/app/src/main.rs",
+    "crates/app/src/app.rs",
+    "crates/app/src/viewer.rs",
+    "crates/app/src/*_view.rs",
+    "crates/app/src/widgets.rs",
+    "crates/app/src/theme.rs",
+]
+
+# Known survivors in what is still mutated, checked by hand before the
+# first release (2026-10-11):
+#
+# - crates/core/src/platform.rs: the `process_list` that is compiled on
+#   non-Windows systems. On Windows it isn't built, so mutating it does
+#   nothing. (3)
+# - crates/app/src/services.rs (`SystemClipboard`): the real clipboard,
+#   which tests must not touch.

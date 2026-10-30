@@ -1,0 +1,8 @@
+# The exact Rust version every build uses, here and in the release workflow,
+# so a release can't change because a newer compiler came out. Raise it on
+# purpose and run the tests.
+[toolchain]
+channel = "1.99.0"
+profile = "minimal"
+components = ["rustfmt", "clippy"]
+targets = ["x86_64-pc-windows-msvc"]
