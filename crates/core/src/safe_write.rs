@@ -214,14 +214,30 @@ fn create_backup_folder(profile_dir: &Path, stamp: &str) -> Result<PathBuf, Writ
 
 /// Copies `file` into `backup_dir` and proves the copy is exactly the
 /// contents that were examined earlier.
+///
+/// The copy is a new file (an existing one is never replaced) and is on the
+/// disk, not just in the system's cache, before this returns, so a power cut
+/// during the write that follows can't take the backup with it.
 fn copy_verified(file: &Path, backup_dir: &Path, expected: Fingerprint) -> Result<(), WriteError> {
     let name = file_name(file);
     let failed = |reason: String| WriteError::BackupFailed {
         file: name.clone(),
         reason,
     };
+    let original = read_settings_bytes(file).map_err(|error| failed(inspect_reason(error)))?;
+    if Fingerprint::of(&original) != expected {
+        return Err(WriteError::BackupMismatch(name));
+    }
     let destination = backup_dir.join(&name);
-    fs::copy(file, &destination).map_err(|error| failed(error.to_string()))?;
+    fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&destination)
+        .and_then(|mut copy| {
+            copy.write_all(&original)?;
+            copy.sync_all()
+        })
+        .map_err(|error| failed(error.to_string()))?;
     let copied =
         read_settings_bytes(&destination).map_err(|error| failed(inspect_reason(error)))?;
     if Fingerprint::of(&copied) != expected {
@@ -433,6 +449,49 @@ mod tests {
             session().back_up(&path, Fingerprint::of(b"original")),
             Err(WriteError::BackupMismatch("core_user_1.dat".to_owned()))
         );
+    }
+
+    #[test]
+    fn a_file_that_changed_is_not_copied_into_the_backups() {
+        let (dir, path) = folder_with("core_user_1.dat", b"changed since");
+        let folder = backups(&dir).join("S");
+        fs::create_dir_all(&folder).unwrap();
+        assert_eq!(
+            copy_verified(&path, &folder, Fingerprint::of(b"original")),
+            Err(WriteError::BackupMismatch("core_user_1.dat".to_owned()))
+        );
+        assert!(names(&folder).is_empty());
+    }
+
+    #[test]
+    fn a_backup_never_replaces_a_file_already_there() {
+        let (dir, path) = folder_with("core_user_1.dat", b"original");
+        let folder = backups(&dir).join("S");
+        fs::create_dir_all(&folder).unwrap();
+        fs::write(folder.join("core_user_1.dat"), b"an older backup").unwrap();
+        let result = copy_verified(&path, &folder, Fingerprint::of(b"original"));
+        let Err(WriteError::BackupFailed { file, reason }) = &result else {
+            panic!("{result:?}");
+        };
+        assert_eq!(file, "core_user_1.dat");
+        assert!(reason.contains("os error"), "{reason}");
+        assert_eq!(
+            fs::read(folder.join("core_user_1.dat")).unwrap(),
+            b"an older backup"
+        );
+    }
+
+    #[test]
+    fn a_read_only_file_can_be_backed_up_and_its_backup_is_not_read_only() {
+        let (dir, path) = folder_with("core_user_1.dat", b"original");
+        make_read_only(&path, true);
+        let result = session().back_up(&path, Fingerprint::of(b"original"));
+        make_read_only(&path, false);
+        let folder = result.unwrap();
+        assert_eq!(folder, backups(&dir).join("S"));
+        let backup = folder.join("core_user_1.dat");
+        assert_eq!(fs::read(&backup).unwrap(), b"original");
+        assert!(!fs::metadata(&backup).unwrap().permissions().readonly());
     }
 
     #[test]
