@@ -12,6 +12,7 @@ use std::thread;
 use clone_bay_core::edit::EditError;
 use clone_bay_core::formations::FormationError;
 use clone_bay_core::platform::EveStatus;
+use clone_bay_core::restore::RestoreError;
 use clone_bay_core::safe_write::BackupSession;
 use clone_bay_core::tab_order::TabOrderError;
 
@@ -34,6 +35,12 @@ impl SaveError for EditError {
 impl SaveError for FormationError {
     fn eve_unknown(&self) -> bool {
         *self == FormationError::Edit(EditError::EveUnknown)
+    }
+}
+
+impl SaveError for RestoreError {
+    fn eve_unknown(&self) -> bool {
+        *self == RestoreError::EveUnknown
     }
 }
 

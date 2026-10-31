@@ -24,6 +24,10 @@ mod list_model;
 mod loader;
 #[cfg(test)]
 mod names_ui_tests;
+mod restore_flow;
+#[cfg(test)]
+mod restore_ui_tests;
+mod restore_view;
 mod saving;
 mod services;
 mod state;

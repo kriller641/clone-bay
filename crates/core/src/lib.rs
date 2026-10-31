@@ -21,5 +21,6 @@ pub mod names;
 pub mod platform;
 pub mod prefs;
 pub mod protect;
+pub mod restore;
 pub mod safe_write;
 pub mod tab_order;

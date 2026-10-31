@@ -17,12 +17,13 @@ first time you run it. Choose "More info", then "Run anyway".
   the autopilot, camera and sound.
 - **Edits probe formations** and shares them with friends.
 - **Puts overview and chat tabs in order.**
+- **Restores a file from one of its backups.**
 
 ## Safety
 
 - Close EVE first: the app won't change anything while EVE is running.
 - Every file is backed up before it is changed, to `clone-bay-backups` in
-  the settings folder. To undo, close EVE and copy the files back from there.
+  the settings folder. To undo, close EVE and choose "Restore from a backup".
 - Anything the app can't read with certainty is left alone.
 
 Character, ship and system names are looked up from CCP's public API; nothing

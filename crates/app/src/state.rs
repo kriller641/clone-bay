@@ -15,6 +15,7 @@ use crate::edit_flow::EditFlow;
 use crate::formation_flow::FormationFlow;
 use crate::list_model::{display_name, KindFilter, Row, Sort, Status};
 use crate::loader::Loader;
+use crate::restore_flow::RestoreFlow;
 use crate::services::Services;
 use crate::tab_flow::TabFlow;
 
@@ -33,6 +34,8 @@ pub enum Screen {
     Formations(FormationFlow),
     /// The tab order screen, for one file.
     Tabs(TabFlow),
+    /// Putting one file back from a backup.
+    Restore(RestoreFlow),
 }
 
 pub struct State {
@@ -446,6 +449,31 @@ impl State {
         }
     }
 
+    /// Whether a file is selected that a backup could be restored onto. A
+    /// file that can't be used can be restored too: that is when it is most
+    /// needed.
+    pub fn can_restore_selected(&self) -> bool {
+        self.selected_row()
+            .is_some_and(|row| !matches!(row.status, Status::Pending))
+    }
+
+    /// Opens the restore screen for the selected file.
+    pub fn begin_restore(&mut self) {
+        if !self.can_restore_selected() {
+            return;
+        }
+        if let Some(row) = self.selected_row() {
+            let name = display_name(&self.names, row.entry.kind, row.entry.id).map(str::to_owned);
+            let flow = RestoreFlow::new(
+                &row.entry,
+                name,
+                self.services.clone(),
+                Arc::clone(&self.wake),
+            );
+            self.screen = Screen::Restore(flow);
+        }
+    }
+
     /// Goes back to the file list. Does nothing while the screen is saving
     /// or copying. If files were changed the list is refreshed, which reads
     /// only the files that changed.
@@ -456,6 +484,7 @@ impl State {
             Screen::Edit(flow) => (flow.busy(), flow.changed_file()),
             Screen::Formations(flow) => (flow.busy(), flow.changed_file()),
             Screen::Tabs(flow) => (flow.busy(), flow.changed_file()),
+            Screen::Restore(flow) => (flow.busy(), flow.changed_file()),
         };
         if busy {
             return;
@@ -510,6 +539,14 @@ impl State {
     pub fn formations_mut(&mut self) -> Option<&mut FormationFlow> {
         match &mut self.screen {
             Screen::Formations(flow) => Some(flow),
+            _ => None,
+        }
+    }
+
+    #[cfg(test)]
+    pub fn restore(&self) -> Option<&RestoreFlow> {
+        match &self.screen {
+            Screen::Restore(flow) => Some(flow),
             _ => None,
         }
     }
@@ -590,6 +627,7 @@ impl State {
             Screen::Edit(flow) => flow.poll(),
             Screen::Formations(flow) => flow.poll(),
             Screen::Tabs(flow) => flow.poll(),
+            Screen::Restore(flow) => flow.poll(),
         }
         self.receive_names();
         self.receive_types();

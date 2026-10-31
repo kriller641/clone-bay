@@ -16,6 +16,7 @@ use crate::list_model::{
     counted, display_name, format_age, format_size, kind_label, mains_first, name_cell,
     status_label, tally, visible_rows, KindFilter, SortColumn, Status,
 };
+use crate::restore_view;
 use crate::state::{Screen, State};
 use crate::tab_view;
 use crate::theme;
@@ -305,6 +306,16 @@ impl App {
             {
                 self.state.begin_formations();
             }
+            let restore = ui.add_enabled(
+                self.state.can_restore_selected(),
+                egui::Button::new("Restore from a backup"),
+            );
+            if restore
+                .on_hover_text("Put this file back the way one of its backups holds it")
+                .clicked()
+            {
+                self.state.begin_restore();
+            }
         });
         ui.add_space(6.0);
         if kind == FileKind::Account {
@@ -417,6 +428,12 @@ impl App {
                     .show(ui, |ui| tab_view::draw(ui, flow))
                     .inner
                     == tab_view::Request::Close,
+            ),
+            Screen::Restore(flow) => Some(
+                egui::CentralPanel::default()
+                    .show(ui, |ui| restore_view::draw(ui, flow))
+                    .inner
+                    == restore_view::Request::Close,
             ),
             Screen::Edit(flow) => Some(
                 egui::CentralPanel::default()
