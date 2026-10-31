@@ -367,6 +367,37 @@ impl eframe::App for App {
     }
 }
 
+/// The size of the window that says the app is already open.
+pub const ALREADY_OPEN_WINDOW_SIZE: [f32; 2] = [520.0, 160.0];
+
+/// The small window shown instead of the app when another window of it is
+/// already open.
+pub struct AlreadyOpen;
+
+impl AlreadyOpen {
+    pub fn new(ctx: &egui::Context) -> Self {
+        theme::apply(ctx);
+        Self
+    }
+
+    pub fn draw(ui: &mut egui::Ui) {
+        egui::CentralPanel::default().show(ui, |ui| {
+            ui.heading("Clone Bay is already open");
+            ui.label("Switch to the window that is open, or close it before opening another.");
+            ui.add_space(8.0);
+            if ui.add(primary_button("Close")).clicked() {
+                ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+            }
+        });
+    }
+}
+
+impl eframe::App for AlreadyOpen {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        Self::draw(ui);
+    }
+}
+
 impl App {
     /// Draws the whole window into `ui`.
     pub fn draw(&mut self, ui: &mut egui::Ui) {
@@ -536,6 +567,20 @@ mod tests {
     use super::*;
     use crate::list_model::{Sort, SortColumn};
     use crate::state::test_support::eve_root;
+
+    #[test]
+    fn a_second_window_says_the_app_is_already_open() {
+        let mut harness = egui_kittest::Harness::builder()
+            .with_size(egui::Vec2::from(ALREADY_OPEN_WINDOW_SIZE))
+            .build_ui(AlreadyOpen::draw);
+        AlreadyOpen::new(&harness.ctx);
+        harness.run();
+        harness.get_by_label("Clone Bay is already open");
+        harness
+            .get_by_label("Switch to the window that is open, or close it before opening another.");
+        harness.get_by_label("Close").click();
+        harness.run();
+    }
 
     #[test]
     fn lists_each_file_with_its_status() {

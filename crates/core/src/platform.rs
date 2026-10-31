@@ -39,6 +39,43 @@ pub fn eve_root_under(local_app_data: &Path) -> PathBuf {
     local_app_data.join("CCP").join("EVE")
 }
 
+/// The file in the app's data folder that the open window holds locked.
+const WINDOW_LOCK_FILE: &str = "window.lock";
+
+/// Whether this is the only window of the app.
+#[derive(Debug)]
+pub enum SingleWindow {
+    /// It is. The lock lasts as long as this file is kept open, and the
+    /// system releases it when the app ends, however it ends.
+    Claimed(std::fs::File),
+    /// Another window of the app is open.
+    AlreadyOpen,
+    /// It couldn't be checked, for this reason.
+    Unchecked(String),
+}
+
+/// Takes the lock that only one window of the app may hold, in `folder`
+/// (the app's data folder), creating the folder if need be.
+pub fn claim_single_window(folder: &Path) -> SingleWindow {
+    let opened = std::fs::create_dir_all(folder).and_then(|()| {
+        std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(folder.join(WINDOW_LOCK_FILE))
+    });
+    let file = match opened {
+        Ok(file) => file,
+        Err(error) => return SingleWindow::Unchecked(error.to_string()),
+    };
+    match file.try_lock() {
+        Ok(()) => SingleWindow::Claimed(file),
+        Err(std::fs::TryLockError::WouldBlock) => SingleWindow::AlreadyOpen,
+        Err(std::fs::TryLockError::Error(error)) => SingleWindow::Unchecked(error.to_string()),
+    }
+}
+
 /// Whether the EVE client is running.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EveStatus {
@@ -148,6 +185,34 @@ mod tests {
         // LOCALAPPDATA is always set for a Windows user session.
         let expected = eve_root_under(Path::new(&std::env::var_os("LOCALAPPDATA").unwrap()));
         assert_eq!(default_eve_root(), Some(expected));
+    }
+
+    #[test]
+    fn only_one_window_holds_the_lock_until_it_lets_go() {
+        let dir = tempfile::tempdir().unwrap();
+        // The folder is made if it isn't there yet.
+        let folder = dir.path().join("clone-bay");
+        let first = claim_single_window(&folder);
+        assert!(matches!(first, SingleWindow::Claimed(_)), "{first:?}");
+        let second = claim_single_window(&folder);
+        assert!(matches!(second, SingleWindow::AlreadyOpen), "{second:?}");
+
+        drop(first);
+        let again = claim_single_window(&folder);
+        assert!(matches!(again, SingleWindow::Claimed(_)), "{again:?}");
+    }
+
+    #[test]
+    fn a_lock_that_cannot_be_made_is_reported_not_treated_as_open() {
+        let dir = tempfile::tempdir().unwrap();
+        // A file where the folder should be.
+        let not_a_folder = dir.path().join("clone-bay");
+        std::fs::write(&not_a_folder, b"x").unwrap();
+        let result = claim_single_window(&not_a_folder);
+        let SingleWindow::Unchecked(reason) = &result else {
+            panic!("{result:?}");
+        };
+        assert!(reason.contains("os error"), "{reason}");
     }
 
     #[test]
