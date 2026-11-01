@@ -14,6 +14,7 @@ profile = "mutants"
 # the test suite; it just isn't mutated. To mutate them anyway, add
 # `--no-config --profile mutants -f <file>`.
 exclude_globs = [
+    "crates/app/build.rs",
     "crates/app/src/main.rs",
     "crates/app/src/app.rs",
     "crates/app/src/viewer.rs",
@@ -29,4 +30,6 @@ exclude_globs = [
 #   non-Windows systems. On Windows it isn't built, so mutating it does
 #   nothing. (3)
 # - crates/app/src/services.rs (`SystemClipboard`): the real clipboard,
-#   which tests must not touch.
+#   which tests must not touch. The same goes for its real `show_folder`,
+#   and for the line in `platform::show_folder` that starts the file
+#   manager.

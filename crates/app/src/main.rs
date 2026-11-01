@@ -46,6 +46,19 @@ use eframe::egui;
 
 const APP_NAME: &str = "Clone Bay";
 
+/// The window's icon, as unpacked pixels (`tools/make_icon.py` writes them
+/// from `assets/icon.png`). The exe's own icon is built in by `build.rs`.
+const ICON_RGBA: &[u8] = include_bytes!("../assets/icon.rgba");
+const ICON_SIDE: u32 = 64;
+
+fn icon() -> egui::IconData {
+    egui::IconData {
+        rgba: ICON_RGBA.to_vec(),
+        width: ICON_SIDE,
+        height: ICON_SIDE,
+    }
+}
+
 fn main() -> eframe::Result {
     // Held until the app ends. If it can't be checked the app opens anyway:
     // a second window only means a second, harmless set of backups.
@@ -59,7 +72,8 @@ fn main() -> eframe::Result {
         viewport: egui::ViewportBuilder::default()
             .with_title(APP_NAME)
             .with_inner_size(app::DEFAULT_WINDOW_SIZE)
-            .with_min_inner_size([720.0, 360.0]),
+            .with_min_inner_size([720.0, 360.0])
+            .with_icon(icon()),
         ..Default::default()
     };
     eframe::run_native(
@@ -75,7 +89,8 @@ fn show_already_open() -> eframe::Result {
         viewport: egui::ViewportBuilder::default()
             .with_title(APP_NAME)
             .with_inner_size(app::ALREADY_OPEN_WINDOW_SIZE)
-            .with_resizable(false),
+            .with_resizable(false)
+            .with_icon(icon()),
         ..Default::default()
     };
     eframe::run_native(
@@ -83,4 +98,13 @@ fn show_already_open() -> eframe::Result {
         options,
         Box::new(|creation| Ok(Box::new(app::AlreadyOpen::new(&creation.egui_ctx)))),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn the_icon_pixels_fill_a_square_of_the_stated_side() {
+        let side = super::ICON_SIDE as usize;
+        assert_eq!(super::ICON_RGBA.len(), side * side * 4);
+    }
 }
