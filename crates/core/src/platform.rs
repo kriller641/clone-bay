@@ -3,6 +3,8 @@
 
 use std::path::{Path, PathBuf};
 
+use thiserror::Error;
+
 /// The folder that holds one sub-folder per EVE install, or `None` when it
 /// can't be worked out on this system.
 ///
@@ -154,6 +156,55 @@ fn process_list() -> Option<String> {
         .then(|| String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
+/// Why a folder couldn't be shown.
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum ShowFolderError {
+    #[error("the folder {0} isn't there any more")]
+    Missing(PathBuf),
+    #[error("the file manager couldn't be opened ({0})")]
+    CannotStart(String),
+}
+
+/// Opens `folder` in the system's file manager.
+pub fn show_folder(folder: &Path) -> Result<(), ShowFolderError> {
+    if !folder.is_dir() {
+        return Err(ShowFolderError::Missing(folder.to_path_buf()));
+    }
+    file_manager(folder)
+        .spawn()
+        .map(drop)
+        .map_err(|error| ShowFolderError::CannotStart(error.to_string()))
+}
+
+#[cfg(windows)]
+fn file_manager(folder: &Path) -> std::process::Command {
+    use std::os::windows::process::CommandExt;
+
+    // The system's own Explorer, not whatever is first on PATH. Explorer
+    // reads a comma as a separator unless the path is quoted, and a Windows
+    // path can't hold a quote, so quoting it is safe.
+    let explorer = std::env::var_os("SystemRoot")
+        .map(|root| PathBuf::from(root).join("explorer.exe"))
+        .unwrap_or_else(|| PathBuf::from("explorer.exe"));
+    let mut command = std::process::Command::new(explorer);
+    command.raw_arg(format!("\"{}\"", folder.display()));
+    command
+}
+
+#[cfg(target_os = "macos")]
+fn file_manager(folder: &Path) -> std::process::Command {
+    let mut command = std::process::Command::new("open");
+    command.arg(folder);
+    command
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
+fn file_manager(folder: &Path) -> std::process::Command {
+    let mut command = std::process::Command::new("xdg-open");
+    command.arg(folder);
+    command
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -236,5 +287,32 @@ mod tests {
         let list = process_list().expect("tasklist should work on Windows");
         assert!(list.to_ascii_lowercase().contains(".exe"), "{list}");
         assert_ne!(eve_status(), EveStatus::Unknown);
+    }
+
+    #[test]
+    fn a_folder_that_has_gone_is_reported_without_starting_anything() {
+        let dir = tempfile::tempdir().unwrap();
+        let gone = dir.path().join("settings_Gone");
+        assert_eq!(show_folder(&gone), Err(ShowFolderError::Missing(gone)));
+        // A file isn't a folder either.
+        let file = dir.path().join("core_user_1.dat");
+        std::fs::write(&file, b"x").unwrap();
+        assert_eq!(show_folder(&file), Err(ShowFolderError::Missing(file)));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn explorer_gets_the_folder_quoted() {
+        let command = file_manager(Path::new(r"C:\EVE,settings\settings_Default"));
+        assert!(command
+            .get_program()
+            .to_string_lossy()
+            .to_ascii_lowercase()
+            .ends_with("explorer.exe"));
+        // A raw argument isn't listed by `get_args`, so check the debug form.
+        assert!(
+            format!("{command:?}").contains(r#""C:\EVE,settings\settings_Default""#),
+            "{command:?}"
+        );
     }
 }

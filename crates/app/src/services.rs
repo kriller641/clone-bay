@@ -1,7 +1,7 @@
 //! The parts of the outside world the app depends on, gathered in one place
 //! so tests can stand in for them.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use clone_bay_core::names::{Esi, NameSource};
@@ -25,7 +25,13 @@ pub struct Services {
     pub names_file: Option<PathBuf>,
     /// The clipboard, for copying probe formations out and pasting them in.
     pub clipboard: Arc<dyn Clipboard + Send + Sync>,
+    /// Opens a folder in the system's file manager. Errors are in plain
+    /// words for showing to the user.
+    pub show_folder: Arc<ShowFolder>,
 }
+
+/// Opens a folder in the system's file manager.
+pub type ShowFolder = dyn Fn(&Path) -> Result<(), String> + Send + Sync;
 
 /// The text clipboard. Errors are in plain words for showing to the user.
 pub trait Clipboard {
@@ -63,6 +69,9 @@ impl Services {
             names_file: clone_bay_core::platform::app_data_dir()
                 .map(|folder| folder.join(NAMES_FILE)),
             clipboard: Arc::new(SystemClipboard),
+            show_folder: Arc::new(|folder| {
+                clone_bay_core::platform::show_folder(folder).map_err(|error| error.to_string())
+            }),
         }
     }
 }
@@ -146,7 +155,8 @@ pub mod test_support {
 
     impl Services {
         /// Nothing real: EVE is not running, the name service knows nobody,
-        /// nothing is saved, and the clipboard is a stand-in that starts empty.
+        /// nothing is saved, the clipboard is a stand-in that starts empty,
+        /// and no folder is ever shown.
         pub fn for_tests() -> Self {
             Self {
                 eve_status: Arc::new(|| EveStatus::NotRunning),
@@ -155,6 +165,7 @@ pub mod test_support {
                 type_name_source: FakeNames::knowing(&[]),
                 names_file: None,
                 clipboard: Arc::new(FakeClipboard::default()),
+                show_folder: Arc::new(|_| Ok(())),
             }
         }
     }

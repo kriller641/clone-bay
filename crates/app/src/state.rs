@@ -30,8 +30,9 @@ pub enum Screen {
     Copy(CopyFlow),
     /// The edit screen, for the file being edited.
     Edit(EditFlow),
-    /// The probe formation editor, for one account.
-    Formations(FormationFlow),
+    /// The probe formation editor, for one account. Boxed: it is much larger
+    /// than the other screens.
+    Formations(Box<FormationFlow>),
     /// The tab order screen, for one file.
     Tabs(TabFlow),
     /// Putting one file back from a backup.
@@ -172,6 +173,19 @@ impl State {
                 self.problem = Some(capitalise(&error.to_string()));
                 self.show_files(Vec::new());
             }
+        }
+    }
+
+    /// Opens the chosen profile's folder in the system's file manager.
+    pub fn show_profile_folder(&mut self) {
+        let Some(profile) = self
+            .selected_profile
+            .and_then(|index| self.profiles.get(index))
+        else {
+            return;
+        };
+        if let Err(error) = (self.services.show_folder)(&profile.path) {
+            self.problem = Some(capitalise(&format!("couldn't open the folder: {error}.")));
         }
     }
 
@@ -428,7 +442,7 @@ impl State {
                 self.services.clone(),
                 Arc::clone(&self.wake),
             );
-            self.screen = Screen::Formations(flow);
+            self.screen = Screen::Formations(Box::new(flow));
         }
     }
 

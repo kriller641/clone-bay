@@ -69,6 +69,16 @@ impl App {
                 self.state.select_profile(index);
             }
             if ui
+                .add_enabled(
+                    self.state.selected_profile.is_some(),
+                    egui::Button::new("Open folder"),
+                )
+                .on_hover_text("Show this profile's folder in File Explorer")
+                .clicked()
+            {
+                self.state.show_profile_folder();
+            }
+            if ui
                 .button("Rescan")
                 .on_hover_text("List this profile's files again")
                 .clicked()
@@ -580,9 +590,10 @@ pub(crate) mod test_support {
 mod tests {
     use egui_kittest::kittest::Queryable;
 
-    use super::test_support::{click, harness};
+    use super::test_support::{click, harness, harness_with};
     use super::*;
     use crate::list_model::{Sort, SortColumn};
+    use crate::services::Services;
     use crate::state::test_support::eve_root;
 
     #[test]
@@ -679,6 +690,37 @@ mod tests {
         click(&mut harness, "Rescan");
         assert_eq!(harness.state().state.rows.len(), 3);
         harness.get_by_label("77");
+    }
+
+    #[test]
+    fn open_folder_shows_the_chosen_profile_folder() {
+        let root = eve_root();
+        let shown = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let record = Arc::clone(&shown);
+        let services = Services {
+            show_folder: Arc::new(move |folder| {
+                record.lock().unwrap().push(folder.to_path_buf());
+                Ok(())
+            }),
+            ..Services::for_tests()
+        };
+        let mut harness = harness_with(root.path(), services);
+        click(&mut harness, "Open folder");
+        let profile = harness.state().state.profiles[0].path.clone();
+        assert_eq!(*shown.lock().unwrap(), [profile]);
+        assert_eq!(harness.state().state.problem, None);
+    }
+
+    #[test]
+    fn a_folder_that_cannot_be_shown_says_why() {
+        let root = eve_root();
+        let services = Services {
+            show_folder: Arc::new(|_| Err("the folder X isn't there any more".to_owned())),
+            ..Services::for_tests()
+        };
+        let mut harness = harness_with(root.path(), services);
+        click(&mut harness, "Open folder");
+        harness.get_by_label("Couldn't open the folder: the folder X isn't there any more.");
     }
 
     #[test]
