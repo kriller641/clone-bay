@@ -7,7 +7,7 @@
 # (3.1 s to 4.2 s), where most of the mutants are.
 profile = "mutants"
 
-# The code that only draws is left out (decided with the user on
+# The code that only draws is left out (decided on
 # 2026-10-12). It was about 570 of 1,950 mutants, and at the full run before
 # v0.1.0 nearly all of its survivors only moved pixels or picked a colour,
 # which the UI tests can't see. What those files decide is still covered by
