@@ -319,6 +319,28 @@ fn a_file_with_no_tabs_stored_says_so() {
 }
 
 #[test]
+fn the_file_list_is_read_again_only_after_a_save() {
+    let dir = profile();
+    let mut ui = tab_screen(
+        dir.path(),
+        EveStatus::NotRunning,
+        "1",
+        "Order overview tabs",
+    );
+    let listed = ui.state().state.rows.len();
+    fs::write(dir.path().join("core_user_9.dat"), b"new").unwrap();
+
+    click(&mut ui, "Back to the file list");
+    assert_eq!(ui.state().state.rows.len(), listed);
+
+    click(&mut ui, "Order overview tabs");
+    click_nth(&mut ui, "Down", 0);
+    save(&mut ui);
+    click(&mut ui, "Back to the file list");
+    assert_eq!(ui.state().state.rows.len(), listed + 1);
+}
+
+#[test]
 fn nothing_is_saved_while_eve_is_running() {
     let dir = profile();
     let path = dir.path().join("core_user_1.dat");
@@ -328,6 +350,8 @@ fn nothing_is_saved_while_eve_is_running() {
     save(&mut ui);
     let problem = flow(&ui).problem.clone().unwrap();
     assert!(problem.starts_with("EVE is running"), "{problem}");
+    // The check worked, so there is nothing for the user to vouch for.
+    assert!(!flow(&ui).saving.needs_eve_confirmation);
     assert!(flow(&ui).saving.saved_to.is_none());
     assert_eq!(fs::read(&path).unwrap(), original);
     // The new order is still there to save once EVE is closed.

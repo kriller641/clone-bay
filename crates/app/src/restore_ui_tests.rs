@@ -13,6 +13,7 @@ use egui_kittest::kittest::Queryable;
 use crate::app::test_support::{click, harness_with, shows, wait_until, Ui};
 use crate::restore_flow::{backup_label, RestoreFlow};
 use crate::services::Services;
+use crate::state::Screen;
 
 /// A small, sound settings file whose one setting is `marker`.
 fn settings(marker: i64) -> Vec<u8> {
@@ -156,6 +157,37 @@ fn a_file_with_no_backups_says_so() {
 }
 
 #[test]
+fn a_backup_past_the_end_of_the_list_cannot_be_picked() {
+    let dir = profile();
+    let mut ui = restore_screen(dir.path(), EveStatus::NotRunning, "1");
+    let Screen::Restore(flow) = &mut ui.state_mut().state.screen else {
+        panic!("the restore screen should be open");
+    };
+    flow.select(1);
+    assert_eq!(flow.selected, None);
+    flow.select(0);
+    assert_eq!(flow.selected, Some(0));
+}
+
+#[test]
+fn the_file_list_is_read_again_only_after_a_restore() {
+    let dir = profile();
+    let file = dir.path().join("core_user_1.dat");
+    let mut ui = restore_screen(dir.path(), EveStatus::NotRunning, "1");
+    let listed = ui.state().state.rows.len();
+    fs::write(dir.path().join("core_user_9.dat"), settings(9)).unwrap();
+
+    click(&mut ui, "Back to the file list");
+    assert_eq!(ui.state().state.rows.len(), listed);
+
+    click(&mut ui, "Restore from a backup");
+    click(&mut ui, &label_of(&file, 0));
+    restore(&mut ui);
+    click(&mut ui, "Back to the file list");
+    assert_eq!(ui.state().state.rows.len(), listed + 1);
+}
+
+#[test]
 fn nothing_is_restored_while_eve_is_running() {
     let dir = profile();
     let file = dir.path().join("core_user_1.dat");
@@ -167,6 +199,8 @@ fn nothing_is_restored_while_eve_is_running() {
         .as_deref()
         .unwrap()
         .starts_with("EVE is running"));
+    // The check worked, so there is nothing for the user to vouch for.
+    assert!(!flow(&ui).saving.needs_eve_confirmation);
     assert_eq!(fs::read(&file).unwrap(), settings(0));
     assert!(!dir.path().join("clone-bay-backups/T").exists());
 }

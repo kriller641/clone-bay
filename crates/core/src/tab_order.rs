@@ -730,6 +730,7 @@ mod tests {
         layout.move_up(9, 0); // no such window
         layout.move_down(9, 0);
         layout.move_up(0, 9); // no such tab
+        layout.move_up(0, 3); // just past the last tab
         assert_eq!(layout, read(&root, FileKind::Account).unwrap());
 
         layout.move_down(0, 0);

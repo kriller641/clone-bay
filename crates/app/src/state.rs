@@ -726,6 +726,17 @@ mod tests {
         }
     }
 
+    #[test]
+    fn a_restore_needs_a_selected_file_that_has_been_checked() {
+        let root = eve_root();
+        let mut state = state(Some(root.path().to_path_buf()));
+        assert!(!state.can_restore_selected());
+        state.selected_file = Some(state.rows[0].entry.path.clone());
+        assert!(!state.can_restore_selected());
+        settle(&mut state);
+        assert!(state.can_restore_selected());
+    }
+
     fn ids(state: &State) -> Vec<u64> {
         state.rows.iter().map(|row| row.entry.id).collect()
     }

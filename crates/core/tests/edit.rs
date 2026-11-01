@@ -1016,6 +1016,12 @@ fn a_number_that_is_not_finite_is_unreadable() {
             Reading::Unreadable,
             "{odd}"
         );
+        let root = with_ui("dir_scanrange", stamped(1, Value::Float(odd)));
+        assert_eq!(
+            reading(&root, FileKind::Account, "dscan_range"),
+            Reading::Unreadable,
+            "{odd}"
+        );
     }
 }
 
@@ -1714,8 +1720,21 @@ fn scan_filters_can_be_renamed_and_removed() {
     let mut unicode = all.clone();
     unicode[1].name = "d\u{ef}ctor".into();
     assert_eq!(
-        scan_filters(&save_filters(&root, unicode))[1].name,
-        "d\u{ef}ctor"
+        held(&save_filters(&root, unicode), "ui", FILTERS_KEY),
+        &at(dict(&[
+            (
+                Value::Int(12),
+                Value::Tuple(vec![Value::Str("boosher".into()), group_list(&[1534])])
+            ),
+            (
+                Value::Int(13),
+                Value::Tuple(vec![Value::Str("d\u{ef}ctor".into()), group_list(&[541])])
+            ),
+            (
+                Value::Int(16),
+                Value::Tuple(vec![Value::Str("ships".into()), group_list(&[25, 26, 27])])
+            ),
+        ]))
     );
 
     // Removing: the filter goes, and so does its place among those
@@ -1925,6 +1944,23 @@ fn a_filter_that_cannot_be_saved_says_which_and_why() {
 }
 
 #[test]
+fn as_many_filters_as_are_allowed_can_be_saved_and_no_more() {
+    let root = scanner(Value::Int(1), None);
+    let mut wanted = scan_filters(&root);
+    let mut id = 100;
+    while wanted.len() < clone_bay_core::edit::MAX_FILTERS {
+        wanted.push(named(id, &format!("new {id}"), &[25]));
+        id += 1;
+    }
+    assert!(filters_result(&root, wanted.clone()).is_ok());
+    wanted.push(named(id, "one too many", &[25]));
+    assert_eq!(
+        filters_result(&root, wanted),
+        Err(EditError::NotAllowed("Probe scan result filters"))
+    );
+}
+
+#[test]
 fn scan_filters_in_an_unexpected_form_are_left_alone() {
     let account = FileKind::Account;
     let with = |filters: Value| dict(&[(b("ui"), dict(&[(b(FILTERS_KEY), stamped(1, filters))]))]);
@@ -1969,7 +2005,22 @@ fn scan_filters_in_an_unexpected_form_are_left_alone() {
     if let Value::Reduce(reduce) = &mut strange {
         reduce.args = Value::Tuple(vec![Value::List(vec![b("12")])]);
     }
-    for odd_set in [Value::Int(1), strange] {
+    // Nor is a set carrying anything beyond its members.
+    let with_extra = |change: fn(&mut clone_bay_marshal::Reduce)| {
+        let mut set = set_of(&[12]);
+        if let Value::Reduce(reduce) = &mut set {
+            change(reduce);
+        }
+        set
+    };
+    let odd_sets = [
+        Value::Int(1),
+        strange,
+        with_extra(|reduce| reduce.state = Some(Value::None)),
+        with_extra(|reduce| reduce.list_items = vec![Value::Int(1)]),
+        with_extra(|reduce| reduce.dict_items = vec![(Value::Int(1), Value::Int(1))]),
+    ];
+    for odd_set in odd_sets {
         let root = scanner(Value::Int(1), Some(odd_set));
         let all = scan_filters(&root);
         assert_eq!(
