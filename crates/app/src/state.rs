@@ -503,10 +503,20 @@ impl State {
         if busy {
             return;
         }
+        let choice_problem = match &mut self.screen {
+            Screen::Copy(flow) => {
+                flow.remember_choice();
+                flow.choice_problem.take()
+            }
+            _ => None,
+        };
         self.screen = Screen::Files;
         if changed {
             // Sizes, times and contents may all be different now.
             self.rescan();
+        }
+        if let Some(problem) = choice_problem {
+            self.problem = Some(format!("{}.", capitalise(&problem)));
         }
     }
 

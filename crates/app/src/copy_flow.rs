@@ -10,6 +10,7 @@ use std::thread;
 use clone_bay_core::copy::{
     execute_copy, plan_copy_scoped, source_chat_channels, CopyPlan, CopyReport, ExecuteError,
 };
+use clone_bay_core::copy_choices::{CopyChoices, ScopeChoice};
 use clone_bay_core::discovery::SettingsFileEntry;
 use clone_bay_core::groups::{groups_for, has_chat_channels, Channel, Group, Scope, Selection};
 use clone_bay_core::names::NameBook;
@@ -54,11 +55,13 @@ pub struct ScopePicker {
 }
 
 impl ScopePicker {
-    /// Starts at "everything". Should the user switch to "only what I tick",
-    /// every group, "everything else" and (when the source has channels to
-    /// offer) chat channels start ticked, so they untick what they don't
-    /// want instead of building the choice up from nothing.
-    fn new(source: &SettingsFileEntry) -> Self {
+    /// Starts from `remembered`, what the user last chose for this kind of
+    /// file. The first time, it starts at "everything". Should the user
+    /// switch to "only what I tick", every group, "everything else" and (when
+    /// the source has channels to offer) chat channels start ticked, so they
+    /// untick what they don't want instead of building the choice up from
+    /// nothing. Chat channels themselves always start ticked.
+    fn new(source: &SettingsFileEntry, remembered: Option<&ScopeChoice>) -> Self {
         let chat =
             has_chat_channels(source.kind).then(|| match source_chat_channels(&source.path) {
                 Ok(channels) => {
@@ -68,7 +71,7 @@ impl ScopePicker {
                         .map(|channel| (channel, true))
                         .collect();
                     ChatPicker {
-                        ticked: !channels.is_empty(),
+                        ticked: !channels.is_empty() && remembered.is_none_or(|choice| choice.chat),
                         channels,
                         problem: None,
                     }
@@ -79,13 +82,37 @@ impl ScopePicker {
                 },
             });
         Self {
-            everything: true,
+            everything: remembered.is_none_or(|choice| choice.everything),
             groups: groups_for(source.kind)
                 .iter()
-                .map(|group| (*group, true))
+                .map(|group| {
+                    let ticked = remembered.is_none_or(|choice| choice.groups.contains(group.id));
+                    (*group, ticked)
+                })
                 .collect(),
-            everything_else: true,
+            everything_else: remembered.is_none_or(|choice| choice.everything_else),
             chat,
+        }
+    }
+
+    /// The choice to remember. A character with no channels to offer says
+    /// nothing about chat, so what was remembered from `before` stays.
+    fn choice(&self, before: Option<&ScopeChoice>) -> ScopeChoice {
+        let offered = self
+            .chat
+            .as_ref()
+            .filter(|chat| !chat.channels.is_empty())
+            .map(|chat| chat.ticked);
+        ScopeChoice {
+            everything: self.everything,
+            groups: self
+                .groups
+                .iter()
+                .filter(|(_, ticked)| *ticked)
+                .map(|(group, _)| group.id.to_owned())
+                .collect(),
+            everything_else: self.everything_else,
+            chat: offered.or(before.map(|choice| choice.chat)).unwrap_or(true),
         }
     }
 
@@ -182,6 +209,12 @@ pub struct CopyFlow {
     pub candidates: Vec<Candidate>,
     /// What to copy.
     pub scope: ScopePicker,
+    /// What was last chosen to copy, as saved.
+    choices: CopyChoices,
+    /// What the screen started with, so an untouched choice isn't saved.
+    opening_choice: ScopeChoice,
+    /// Why the choice couldn't be remembered, if it couldn't.
+    pub choice_problem: Option<String>,
     pub search: String,
     /// The order the files to copy onto are listed in.
     pub sort: Sort,
@@ -231,11 +264,29 @@ impl CopyFlow {
                 ticked: false,
             })
             .collect();
+        let (choices, choice_problem) = match &services.copy_choices_file {
+            Some(file) => match CopyChoices::load(file) {
+                Ok(choices) => (choices, None),
+                Err(error) => (
+                    CopyChoices::default(),
+                    Some(format!(
+                        "couldn't read your last choice of what to copy ({error})"
+                    )),
+                ),
+            },
+            None => (CopyChoices::default(), None),
+        };
+        let remembered = choices.get(source.kind);
+        let scope = ScopePicker::new(source, remembered);
+        let opening_choice = scope.choice(remembered);
         Self {
             source: source.clone(),
             source_name: name_of(source),
             candidates,
-            scope: ScopePicker::new(source),
+            scope,
+            choices,
+            opening_choice,
+            choice_problem,
             search: String::new(),
             sort: Sort::default(),
             anchor: None,
@@ -352,6 +403,26 @@ impl CopyFlow {
         self.ticked() > 0 && self.scope.chooses_something()
     }
 
+    /// Saves what is chosen now, for the next copy of this kind of file.
+    /// A choice the user didn't change isn't saved.
+    pub fn remember_choice(&mut self) {
+        let kind = self.source.kind;
+        let choice = self.scope.choice(self.choices.get(kind));
+        if choice == self.opening_choice {
+            return;
+        }
+        self.opening_choice = choice.clone();
+        self.choices.set(kind, choice);
+        if let Some(file) = &self.services.copy_choices_file {
+            self.choice_problem = self.choices.save(file).err().map(|error| {
+                format!(
+                    "couldn't remember your choice of what to copy ({error}). No settings file \
+                     was affected"
+                )
+            });
+        }
+    }
+
     /// How far the current background step has got: `(done, total)`.
     pub fn progress(&self) -> (usize, usize) {
         (self.progress.load(Ordering::SeqCst), self.progress_total)
@@ -377,6 +448,7 @@ impl CopyFlow {
         if !self.scope.chooses_something() {
             return;
         }
+        self.remember_choice();
         let scope = self.scope.scope();
         let (progress, wake) = self.begin(targets.len());
         let source = self.source.path.clone();

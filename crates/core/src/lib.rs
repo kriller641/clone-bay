@@ -9,8 +9,10 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
+mod app_file;
 pub mod bundled;
 pub mod copy;
+pub mod copy_choices;
 pub mod discovery;
 pub mod edit;
 pub mod formation_share;

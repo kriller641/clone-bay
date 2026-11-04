@@ -6,12 +6,14 @@
 
 use std::collections::BTreeMap;
 use std::fs;
-use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::io;
+use std::path::Path;
 use std::time::Duration;
 
 use serde::Deserialize;
 use thiserror::Error;
+
+use crate::app_file;
 
 /// The most IDs ESI resolves in one request.
 pub const MAX_IDS_PER_REQUEST: usize = 1000;
@@ -211,22 +213,7 @@ impl NameBook {
     /// flushed to disk and then swapped in, so neither a crash nor a power
     /// cut can leave half a file or an empty one.
     pub fn save(&self, path: &Path) -> io::Result<()> {
-        if let Some(folder) = path.parent() {
-            fs::create_dir_all(folder)?;
-        }
-        let mut temp = path.as_os_str().to_owned();
-        temp.push(".tmp");
-        let temp = PathBuf::from(temp);
-        let written = fs::File::create(&temp)
-            .and_then(|mut file| {
-                file.write_all(self.to_text().as_bytes())?;
-                file.sync_all()
-            })
-            .and_then(|()| fs::rename(&temp, path));
-        if written.is_err() {
-            let _ = fs::remove_file(&temp);
-        }
-        written
+        app_file::replace(path, &self.to_text())
     }
 }
 

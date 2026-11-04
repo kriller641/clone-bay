@@ -11,7 +11,9 @@ use egui_extras::{Column, TableBuilder};
 use crate::copy_flow::{ChatPicker, CopyFlow, Stage};
 use crate::list_model::{counted, format_age, format_size, kind_label, SortColumn};
 use crate::theme::{self, ROW_HEIGHT};
-use crate::widgets::{eve_closed_box, marker, note, primary_button, sort_header, steps};
+use crate::widgets::{
+    eve_closed_box, marker, note, primary_button, problem_line, sort_header, steps,
+};
 
 /// The steps of a copy, as shown at the top of every copy screen.
 const STEPS: [&str; 3] = ["Choose", "Review", "Done"];
@@ -163,6 +165,7 @@ fn picking(ui: &mut egui::Ui, flow: &mut CopyFlow) -> Request {
         return request;
     }
 
+    problem_line(ui, flow.choice_problem.as_deref());
     // Leave room below the two lists for the buttons.
     let list_height = (ui.available_height() - 48.0).max(ROW_HEIGHT * 3.0);
     ui.columns(2, |columns| {

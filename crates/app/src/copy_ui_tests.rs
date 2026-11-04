@@ -73,6 +73,29 @@ fn copy_screen(dir: &Path, eve: EveStatus) -> Ui {
     ui
 }
 
+/// The same, with what is chosen remembered in `choices`.
+fn copy_screen_remembering(dir: &Path, choices: &Path) -> Ui {
+    let services = Services {
+        copy_choices_file: Some(choices.to_path_buf()),
+        ..services(EveStatus::NotRunning)
+    };
+    let mut ui = harness_with(dir, services);
+    click(&mut ui, "1");
+    click(&mut ui, "Copy to other files");
+    assert!(ui.state().state.copy().is_some());
+    ui
+}
+
+fn ticked_groups(ui: &Ui) -> Vec<&'static str> {
+    flow(ui)
+        .scope
+        .groups
+        .iter()
+        .filter(|(_, ticked)| *ticked)
+        .map(|(group, _)| group.label)
+        .collect()
+}
+
 fn flow(ui: &Ui) -> &crate::copy_flow::CopyFlow {
     ui.state().state.copy().unwrap()
 }
@@ -602,6 +625,165 @@ fn everything_else_and_several_groups_can_be_combined() {
     assert_eq!(tag_in(dir.path(), "core_user_2.dat", "audio"), 1);
     assert_eq!(tag_in(dir.path(), "core_user_2.dat", "notifications"), 1);
     assert_eq!(tag_in(dir.path(), "core_user_2.dat", "ui"), 2);
+}
+
+#[test]
+fn what_was_ticked_is_remembered_for_the_next_copy() {
+    let dir = grouped_profile();
+    let memory = tempfile::tempdir().unwrap();
+    let choices = memory.path().join("choices.tsv");
+
+    let mut ui = copy_screen_remembering(dir.path(), &choices);
+    // The first time, it starts at "everything" with every box ticked.
+    assert!(flow(&ui).scope.everything);
+    click(&mut ui, "2");
+    click(&mut ui, "Only what I tick");
+    untick_all(&mut ui);
+    click(&mut ui, "Keyboard shortcuts");
+    // Nothing is saved until the choice is used.
+    assert!(!choices.exists());
+    check_files(&mut ui);
+    assert!(choices.exists());
+    drop(ui);
+
+    let mut ui = copy_screen_remembering(dir.path(), &choices);
+    assert!(!flow(&ui).scope.everything);
+    assert_eq!(ticked_groups(&ui), ["Keyboard shortcuts"]);
+    assert!(!flow(&ui).scope.everything_else);
+    // The review says what will be copied, and it is only what is ticked.
+    click(&mut ui, "2");
+    check_files(&mut ui);
+    assert_eq!(flow(&ui).scope.summary(), "keyboard shortcuts");
+}
+
+#[test]
+fn a_choice_is_remembered_when_the_screen_is_left_without_copying() {
+    let dir = grouped_profile();
+    let memory = tempfile::tempdir().unwrap();
+    let choices = memory.path().join("choices.tsv");
+
+    let mut ui = copy_screen_remembering(dir.path(), &choices);
+    click(&mut ui, "Cancel");
+    // Nothing was changed, so there is nothing to remember.
+    assert!(!choices.exists());
+
+    click(&mut ui, "Copy to other files");
+    click(&mut ui, "Only what I tick");
+    click(&mut ui, "Everything else");
+    click(&mut ui, "Cancel");
+    assert!(ui.state().state.copy().is_none());
+    drop(ui);
+
+    let ui = copy_screen_remembering(dir.path(), &choices);
+    assert!(!flow(&ui).scope.everything);
+    assert!(!flow(&ui).scope.everything_else);
+    assert!(flow(&ui).scope.groups.iter().all(|(_, ticked)| *ticked));
+}
+
+#[test]
+fn accounts_and_characters_are_remembered_separately() {
+    let dir = grouped_profile();
+    let channels = [("player_a", "player_a", "Traders")];
+    for id in [8, 9] {
+        fs::write(
+            dir.path().join(format!("core_char_{id}.dat")),
+            encode(&character_with_channels(id, &channels), false).unwrap(),
+        )
+        .unwrap();
+    }
+    let memory = tempfile::tempdir().unwrap();
+    let choices = memory.path().join("choices.tsv");
+
+    let mut ui = copy_screen_remembering(dir.path(), &choices);
+    click(&mut ui, "Only what I tick");
+    click(&mut ui, "Cancel");
+    click(&mut ui, "8");
+    click(&mut ui, "Copy to other files");
+    // The account's choice doesn't reach a character.
+    assert!(flow(&ui).scope.everything);
+    click(&mut ui, "Only what I tick");
+    click(&mut ui, "Chat channels");
+    click(&mut ui, "Cancel");
+    click(&mut ui, "9");
+    click(&mut ui, "Copy to other files");
+    let chat = flow(&ui).scope.chat.clone().unwrap();
+    assert!(!flow(&ui).scope.everything);
+    assert!(!chat.ticked);
+    // The channels themselves are never remembered: they start ticked.
+    assert!(chat.channels.iter().all(|(_, ticked)| *ticked));
+    click(&mut ui, "Cancel");
+    click(&mut ui, "1");
+    click(&mut ui, "Copy to other files");
+    assert!(!flow(&ui).scope.everything);
+    assert!(flow(&ui).scope.chat.is_none());
+}
+
+#[test]
+fn a_character_with_no_channels_does_not_forget_the_chat_choice() {
+    let dir = tempfile::tempdir().unwrap();
+    let put = |id: i64, channels: &[(&str, &str, &str)]| {
+        fs::write(
+            dir.path().join(format!("core_char_{id}.dat")),
+            encode(&character_with_channels(id, channels), false).unwrap(),
+        )
+        .unwrap();
+    };
+    put(1, &[("player_a", "player_a", "Traders")]);
+    put(2, &[]);
+    put(3, &[("player_b", "player_b", "Scouts")]);
+    let memory = tempfile::tempdir().unwrap();
+    let choices = memory.path().join("choices.tsv");
+
+    // Chat is left ticked, and something else changed.
+    let mut ui = copy_screen_remembering(dir.path(), &choices);
+    click(&mut ui, "Only what I tick");
+    click(&mut ui, "Cancel");
+    // Using a character with no channels changes something and saves.
+    click(&mut ui, "2");
+    click(&mut ui, "Copy to other files");
+    click(&mut ui, "Everything else");
+    assert!(!flow(&ui).scope.chat.as_ref().unwrap().ticked);
+    click(&mut ui, "Cancel");
+    click(&mut ui, "3");
+    click(&mut ui, "Copy to other files");
+    assert!(flow(&ui).scope.chat.as_ref().unwrap().ticked);
+    assert!(!flow(&ui).scope.everything_else);
+}
+
+#[test]
+fn a_choice_that_cannot_be_read_starts_afresh_and_says_so() {
+    let dir = grouped_profile();
+    let memory = tempfile::tempdir().unwrap();
+    // A folder where the file should be can't be read.
+    let ui = copy_screen_remembering(dir.path(), memory.path());
+    assert!(flow(&ui).scope.everything);
+    assert!(flow(&ui)
+        .choice_problem
+        .as_deref()
+        .is_some_and(|problem| problem.starts_with("couldn't read your last choice")));
+}
+
+#[test]
+fn a_choice_that_cannot_be_saved_says_so_on_the_file_list() {
+    let dir = grouped_profile();
+    let memory = tempfile::tempdir().unwrap();
+    let in_the_way = memory.path().join("a file");
+    fs::write(&in_the_way, b"x").unwrap();
+
+    let mut ui = copy_screen_remembering(dir.path(), &in_the_way.join("choices.tsv"));
+    assert_eq!(flow(&ui).choice_problem, None);
+    click(&mut ui, "Only what I tick");
+    click(&mut ui, "Cancel");
+    assert!(ui.state().state.copy().is_none());
+    let problem = ui.state().state.problem.clone().unwrap();
+    assert!(
+        problem.starts_with("Couldn't remember your choice"),
+        "{problem}"
+    );
+    assert!(
+        problem.ends_with("No settings file was affected."),
+        "{problem}"
+    );
 }
 
 #[test]

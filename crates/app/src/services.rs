@@ -9,6 +9,7 @@ use clone_bay_core::platform::EveStatus;
 use clone_bay_core::safe_write::BackupSession;
 
 const NAMES_FILE: &str = "names.tsv";
+const COPY_CHOICES_FILE: &str = "copy_choices.tsv";
 
 #[derive(Clone)]
 pub struct Services {
@@ -23,6 +24,9 @@ pub struct Services {
     /// Where names and account labels are remembered. `None` means they
     /// last only as long as the window is open.
     pub names_file: Option<PathBuf>,
+    /// Where what was last chosen to copy is remembered. `None` means it
+    /// lasts only as long as the copy screen is open.
+    pub copy_choices_file: Option<PathBuf>,
     /// The clipboard, for copying probe formations out and pasting them in.
     pub clipboard: Arc<dyn Clipboard + Send + Sync>,
     /// Opens a folder in the system's file manager. Errors are in plain
@@ -68,6 +72,8 @@ impl Services {
             type_name_source: Arc::new(Esi::for_item_types(env!("CARGO_PKG_VERSION"))),
             names_file: clone_bay_core::platform::app_data_dir()
                 .map(|folder| folder.join(NAMES_FILE)),
+            copy_choices_file: clone_bay_core::platform::app_data_dir()
+                .map(|folder| folder.join(COPY_CHOICES_FILE)),
             clipboard: Arc::new(SystemClipboard),
             show_folder: Arc::new(|folder| {
                 clone_bay_core::platform::show_folder(folder).map_err(|error| error.to_string())
@@ -164,6 +170,7 @@ pub mod test_support {
                 name_source: FakeNames::knowing(&[]),
                 type_name_source: FakeNames::knowing(&[]),
                 names_file: None,
+                copy_choices_file: None,
                 clipboard: Arc::new(FakeClipboard::default()),
                 show_folder: Arc::new(|_| Ok(())),
             }
