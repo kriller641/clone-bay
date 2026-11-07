@@ -17,7 +17,7 @@ use crate::list_model::{
     status_label, tally, visible_rows, KindFilter, SortColumn, Status,
 };
 use crate::restore_view;
-use crate::state::{Screen, State};
+use crate::state::{RowAction, Screen, State};
 use crate::tab_view;
 use crate::theme;
 use crate::widgets::{marker, panel_frame, primary_button, sort_header};
@@ -146,6 +146,7 @@ impl App {
         ui.style_mut().interaction.selectable_labels = false;
         let mut clicked_header = None;
         let mut clicked_file = None;
+        let mut menu_action = None;
         TableBuilder::new(ui)
             .striped(true)
             .resizable(true)
@@ -205,9 +206,18 @@ impl App {
                     table_row.col(|ui| {
                         ui.weak(format_age(entry.modified, now));
                     });
-                    if table_row.response().clicked() {
+                    let response = table_row.response();
+                    // A right-click selects the row too, so the menu and the
+                    // panel beside the list are about the same file.
+                    if response.clicked() || response.secondary_clicked() {
                         clicked_file = Some(entry.path.clone());
                     }
+                    response.context_menu(|ui| {
+                        if let Some(action) = row_menu(ui, state, entry.kind, entry.id) {
+                            menu_action = Some(action);
+                            ui.close();
+                        }
+                    });
                 });
             });
         if let Some(column) = clicked_header {
@@ -217,6 +227,9 @@ impl App {
         }
         if let Some(path) = clicked_file {
             self.state.selected_file = Some(path);
+        }
+        if let Some(action) = menu_action {
+            self.state.act_on_selected(action);
         }
     }
 
@@ -504,6 +517,37 @@ impl App {
     }
 }
 
+/// A row's right-click menu: the same choices as the buttons beside the
+/// list, for the file that was right-clicked (which is selected by then).
+/// Returns what was chosen.
+fn row_menu(ui: &mut egui::Ui, state: &State, kind: FileKind, id: u64) -> Option<RowAction> {
+    let mut chosen = None;
+    let mut marked = state.main_of(kind) == Some(id);
+    if ui.checkbox(&mut marked, "Mark as main").changed() {
+        chosen = Some(RowAction::ToggleMain);
+    }
+    ui.separator();
+    let usable = state.can_copy_selected();
+    let mut item = |ui: &mut egui::Ui, enabled: bool, label: &str, action: RowAction| {
+        if ui.add_enabled(enabled, egui::Button::new(label)).clicked() {
+            chosen = Some(action);
+        }
+    };
+    item(ui, usable, "Copy to other files", RowAction::Copy);
+    item(ui, usable, "Edit settings", RowAction::Edit);
+    item(ui, usable, tab_view::button_label(kind), RowAction::Tabs);
+    if state.can_edit_formations() {
+        item(ui, true, "Edit probe formations", RowAction::Formations);
+    }
+    item(
+        ui,
+        state.can_restore_selected(),
+        "Restore from a backup",
+        RowAction::Restore,
+    );
+    chosen
+}
+
 fn profile_label(profile: &clone_bay_core::discovery::Profile) -> String {
     format!("{}  ({})", profile.name, profile.install)
 }
@@ -588,7 +632,7 @@ pub(crate) mod test_support {
 
 #[cfg(test)]
 mod tests {
-    use egui_kittest::kittest::Queryable;
+    use egui_kittest::kittest::{NodeT, Queryable};
 
     use super::test_support::{click, harness, harness_with};
     use super::*;
@@ -721,6 +765,136 @@ mod tests {
         let mut harness = harness_with(root.path(), services);
         click(&mut harness, "Open folder");
         harness.get_by_label("Couldn't open the folder: the folder X isn't there any more.");
+    }
+
+    /// Right-clicks the row showing `row_label` and returns where, since the
+    /// menu opens there.
+    fn right_click(harness: &mut test_support::Ui, row_label: &str) -> egui::Pos2 {
+        let at = harness.get_by_label(row_label).rect().center();
+        harness.get_by_label(row_label).click_secondary();
+        test_support::settle(harness);
+        at
+    }
+
+    /// The menu item `label` in the menu opened at `at`. The panel beside
+    /// the list has a button with the same text; the menu's is the one
+    /// nearest where the menu opened.
+    fn menu_item<'a>(
+        harness: &'a test_support::Ui,
+        at: egui::Pos2,
+        label: &'a str,
+    ) -> egui_kittest::Node<'a> {
+        harness
+            .get_all_by_label(label)
+            .min_by(|a, b| {
+                let (a, b) = (
+                    a.rect().center().distance(at),
+                    b.rect().center().distance(at),
+                );
+                a.total_cmp(&b)
+            })
+            .unwrap()
+    }
+
+    fn choose(harness: &mut test_support::Ui, at: egui::Pos2, label: &str) {
+        menu_item(harness, at, label).click();
+        test_support::settle(harness);
+    }
+
+    #[test]
+    fn right_clicking_a_row_selects_it_and_offers_the_panel_buttons() {
+        let root = eve_root();
+        let mut harness = harness(root.path());
+        let at = right_click(&mut harness, "11");
+        let selected = harness.state().state.selected_row().map(|row| row.entry.id);
+        assert_eq!(selected, Some(11));
+        for label in [
+            "Mark as main",
+            "Copy to other files",
+            "Edit settings",
+            "Order overview tabs",
+            "Edit probe formations",
+            "Restore from a backup",
+        ] {
+            // Once in the panel, once in the menu.
+            assert_eq!(harness.get_all_by_label(label).count(), 2, "{label}");
+            assert!(!menu_item(&harness, at, label)
+                .accesskit_node()
+                .is_disabled());
+        }
+    }
+
+    #[test]
+    fn the_menu_opens_the_chosen_screen() {
+        let root = eve_root();
+        let mut harness = harness(root.path());
+        let at = right_click(&mut harness, "11");
+        choose(&mut harness, at, "Edit settings");
+        assert!(matches!(harness.state().state.screen, Screen::Edit(_)));
+        // The menu closed with the choice.
+        assert!(harness.query_by_label("Copy to other files").is_none());
+    }
+
+    #[test]
+    fn the_menu_opens_the_tab_and_formation_screens() {
+        let root = eve_root();
+        let mut harness = harness(root.path());
+        let at = right_click(&mut harness, "11");
+        choose(&mut harness, at, "Order overview tabs");
+        assert!(matches!(harness.state().state.screen, Screen::Tabs(_)));
+        harness.state_mut().state.close_screen();
+        test_support::settle(&mut harness);
+        let at = right_click(&mut harness, "11");
+        choose(&mut harness, at, "Edit probe formations");
+        assert!(matches!(
+            harness.state().state.screen,
+            Screen::Formations(_)
+        ));
+    }
+
+    #[test]
+    fn the_menu_acts_on_the_row_right_clicked_not_the_one_selected_before() {
+        let root = eve_root();
+        let mut harness = harness(root.path());
+        click(&mut harness, "22");
+        let at = right_click(&mut harness, "11");
+        choose(&mut harness, at, "Copy to other files");
+        let Screen::Copy(_) = &harness.state().state.screen else {
+            panic!("the copy screen should be open");
+        };
+        assert_eq!(
+            harness.state().state.selected_row().map(|row| row.entry.id),
+            Some(11)
+        );
+    }
+
+    #[test]
+    fn mark_as_main_in_the_menu_marks_the_file() {
+        let root = eve_root();
+        let mut harness = harness(root.path());
+        let at = right_click(&mut harness, "11");
+        choose(&mut harness, at, "Mark as main");
+        assert_eq!(harness.state().state.main_of(FileKind::Account), Some(11));
+        assert!(harness.query_by_label("Edit settings").is_some());
+        assert_eq!(harness.get_all_by_label("Edit settings").count(), 1);
+    }
+
+    #[test]
+    fn a_damaged_file_can_only_be_restored_from_the_menu() {
+        let root = eve_root();
+        let mut harness = harness(root.path());
+        let at = right_click(&mut harness, "22");
+        for label in ["Copy to other files", "Edit settings", "Order chat tabs"] {
+            assert!(
+                menu_item(&harness, at, label)
+                    .accesskit_node()
+                    .is_disabled(),
+                "{label}"
+            );
+        }
+        assert!(harness.query_by_label("Edit probe formations").is_none());
+        choose(&mut harness, at, "Restore from a backup");
+        assert!(matches!(harness.state().state.screen, Screen::Restore(_)));
     }
 
     #[test]

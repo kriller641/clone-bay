@@ -39,6 +39,18 @@ pub enum Screen {
     Restore(RestoreFlow),
 }
 
+/// What a row's right-click menu offers: a second way to the buttons beside
+/// the list, for the file that was right-clicked.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RowAction {
+    ToggleMain,
+    Copy,
+    Edit,
+    Tabs,
+    Formations,
+    Restore,
+}
+
 pub struct State {
     /// The folder the user typed, shown when nothing was found automatically.
     pub folder_input: String,
@@ -485,6 +497,19 @@ impl State {
                 Arc::clone(&self.wake),
             );
             self.screen = Screen::Restore(flow);
+        }
+    }
+
+    /// Does what was chosen from a row's right-click menu, to the selected
+    /// file: the same as the matching button beside the list.
+    pub fn act_on_selected(&mut self, action: RowAction) {
+        match action {
+            RowAction::ToggleMain => self.toggle_main_selected(),
+            RowAction::Copy => self.begin_copy(),
+            RowAction::Edit => self.begin_edit(),
+            RowAction::Tabs => self.begin_tabs(),
+            RowAction::Formations => self.begin_formations(),
+            RowAction::Restore => self.begin_restore(),
         }
     }
 
