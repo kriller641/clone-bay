@@ -13,8 +13,8 @@ use crate::edit_flow::{
 use crate::list_model::{counted, kind_label};
 use crate::theme;
 use crate::widgets::{
-    dot, problem_line, save_buttons, save_footer_height, save_messages, section, section_title,
-    typed_number, SaveButton,
+    back_requested, dot, problem_line, remember_typing, save_buttons, save_footer_height,
+    save_messages, section, section_title, typed_number, SaveButton,
 };
 
 /// The width kept for a setting's name, so the controls line up.
@@ -38,7 +38,12 @@ pub fn title(flow: &EditFlow) -> String {
 }
 
 pub fn draw(ui: &mut egui::Ui, flow: &mut EditFlow, names: &NameBook) -> Request {
-    let mut request = Request::None;
+    // Esc and the mouse's back button do what "Back to the file list" does.
+    let mut request = if back_requested(ui) {
+        Request::Close
+    } else {
+        Request::None
+    };
     ui.add_space(4.0);
     ui.heading(egui::RichText::new(title(flow)).strong());
     ui.add_space(6.0);
@@ -106,6 +111,7 @@ pub fn draw(ui: &mut egui::Ui, flow: &mut EditFlow, names: &NameBook) -> Request
         Some(SaveButton::Back) => request = Request::Close,
         None => {}
     }
+    remember_typing(ui);
     request
 }
 

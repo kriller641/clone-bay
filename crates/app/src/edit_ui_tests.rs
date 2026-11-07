@@ -1454,3 +1454,76 @@ fn kinds_of_result_are_offered_by_category_with_the_filters_own_kept() {
         .any(|(category, _)| *category == OTHER_GROUPS));
     assert!(!choices[0].1.iter().any(|(id, _, _)| *id == 381));
 }
+
+#[test]
+fn esc_goes_back_to_the_file_list() {
+    let dir = profile();
+    let mut ui = edit_screen(dir.path(), EveStatus::NotRunning, "2");
+    ui.key_press(egui::Key::Escape);
+    settle(&mut ui);
+    assert!(ui.state().state.edit().is_none());
+    ui.get_by_label("Rescan");
+}
+
+#[test]
+fn the_mouse_back_button_goes_back_to_the_file_list() {
+    let dir = profile();
+    let mut ui = edit_screen(dir.path(), EveStatus::NotRunning, "2");
+    let at = ui.get_by_label("Back to the file list").rect().center();
+    for pressed in [true, false] {
+        ui.event(egui::Event::PointerButton {
+            pos: at,
+            button: egui::PointerButton::Extra1,
+            pressed,
+            modifiers: egui::Modifiers::default(),
+        });
+    }
+    settle(&mut ui);
+    assert!(ui.state().state.edit().is_none());
+}
+
+#[test]
+fn esc_while_typing_only_leaves_the_box() {
+    let dir = profile();
+    let mut ui = edit_screen(dir.path(), EveStatus::NotRunning, "2");
+    let at = ui
+        .get_all_by_role(Role::TextInput)
+        .next()
+        .unwrap()
+        .rect()
+        .center();
+    click_at(&mut ui, at);
+    assert!(ui.ctx.memory(|memory| memory.focused().is_some()));
+    ui.key_press(egui::Key::Escape);
+    settle(&mut ui);
+    assert!(
+        ui.state().state.edit().is_some(),
+        "still on the edit screen"
+    );
+    assert!(ui.ctx.memory(|memory| memory.focused().is_none()));
+    // A second Esc, with nothing being typed, goes back.
+    ui.key_press(egui::Key::Escape);
+    settle(&mut ui);
+    assert!(ui.state().state.edit().is_none());
+}
+
+#[test]
+fn esc_with_a_list_open_only_closes_the_list() {
+    let dir = profile();
+    let mut ui = edit_screen(dir.path(), EveStatus::NotRunning, "1");
+    let at = ui
+        .get_all_by_role(Role::ComboBox)
+        .next()
+        .unwrap()
+        .rect()
+        .center();
+    click_at(&mut ui, at);
+    assert!(egui::Popup::is_any_open(&ui.ctx));
+    ui.key_press(egui::Key::Escape);
+    settle(&mut ui);
+    assert!(
+        ui.state().state.edit().is_some(),
+        "still on the edit screen"
+    );
+    assert!(!egui::Popup::is_any_open(&ui.ctx));
+}

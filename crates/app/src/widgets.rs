@@ -144,6 +144,35 @@ pub fn save_buttons(
     pressed
 }
 
+/// Where `remember_typing` notes whether a box had keyboard focus.
+fn typing_id() -> egui::Id {
+    egui::Id::new("clone-bay-typing-last-frame")
+}
+
+/// Whether Esc or the mouse's back button asked to go back to the file list,
+/// like "Back to the file list". Esc pressed while typing in a box, or with
+/// a list open, only leaves the box or closes the list, as it always has.
+/// Call it before the screen's widgets, and `remember_typing` after them.
+pub fn back_requested(ui: &egui::Ui) -> bool {
+    let ctx = ui.ctx();
+    // egui takes focus away on Esc before anything is drawn, so whether the
+    // user was typing has to come from the end of the last frame.
+    let was_typing = ctx.data(|data| data.get_temp::<bool>(typing_id()) == Some(true));
+    let busy_with_esc = was_typing || egui::Popup::is_any_open(ctx);
+    ui.input(|input| {
+        input.pointer.button_pressed(egui::PointerButton::Extra1)
+            || (!busy_with_esc && input.key_pressed(egui::Key::Escape))
+    })
+}
+
+/// Notes whether a box has keyboard focus now, for `back_requested` on the
+/// next frame.
+pub fn remember_typing(ui: &egui::Ui) {
+    let ctx = ui.ctx();
+    let typing = ctx.memory(|memory| memory.focused().is_some());
+    ctx.data_mut(|data| data.insert_temp(typing_id(), typing));
+}
+
 /// A bordered card that sets one group of controls apart from the next.
 /// With a title, the title sits at the top with a line under it.
 pub fn section(ui: &mut egui::Ui, title: Option<&str>, contents: impl FnOnce(&mut egui::Ui)) {
