@@ -1083,7 +1083,7 @@ fn the_route_and_jump_gates_can_be_changed() {
     let drop_down = ui.get_by_value("Prefer safer").rect().center();
     click_at(&mut ui, drop_down);
     click(&mut ui, "Shortest");
-    click(&mut ui, "Use player-built jump gates in routes");
+    click(&mut ui, "Use Ansiblex in routes");
     ui.get_by_label("2 changes not saved");
     save(&mut ui);
     assert!(flow(&ui).problem.is_none(), "{:?}", flow(&ui).problem);

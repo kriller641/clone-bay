@@ -423,7 +423,7 @@ const CHARACTER_SETTINGS: &[Setting] = &[
     ui(
         "route_jump_gates",
         AUTOPILOT,
-        "Use player-built jump gates in routes",
+        "Use Ansiblex in routes",
         &["pathFinder_includeJumpGates"],
         Kind::Bool,
     ),
