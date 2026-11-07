@@ -607,8 +607,10 @@ fn distances(
                 egui::TextEdit::singleline(extras.add_input)
                     .hint_text("Type part of its name")
                     .desired_width(200.0),
-            )
-            .on_hover_text("Pick a ship below to add it at 500 m, then change the distance");
+            );
+            // Beside the box, not a hover tooltip: a tooltip would cover the
+            // ships offered just below it.
+            ui.weak("Pick a ship below to add it at 500 m, then change the distance");
         });
         // Ships matching what has been typed; picking one adds it.
         let matches = search_bundled_types(extras.add_input, SUGGESTIONS);

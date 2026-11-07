@@ -766,6 +766,10 @@ fn a_ship_picked_from_the_built_in_list_starts_at_500_metres() {
     let (index, _) = orbit_row(&ui);
     flow_mut(&mut ui).rows[index].add_input = "machar".to_owned();
     settle(&mut ui);
+    // How to add one is shown beside the box without hovering, never as a
+    // tooltip that would cover the ships offered.
+    let hint = "Pick a ship below to add it at 500 m, then change the distance";
+    assert!(ui.query_all_by_label(hint).next().is_some());
     click(&mut ui, "Machariel");
 
     let (_, row) = orbit_row(&ui);
