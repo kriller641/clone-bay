@@ -21,14 +21,6 @@ pub enum Request {
     Close,
 }
 
-/// What the button that opens this screen says for a kind of file.
-pub fn button_label(kind: FileKind) -> &'static str {
-    match kind {
-        FileKind::Account => "Order overview tabs",
-        FileKind::Character => "Order chat tabs",
-    }
-}
-
 /// The heading of the screen: whose tabs these are.
 pub fn title(flow: &TabFlow) -> String {
     let what = match flow.entry.kind {
@@ -209,8 +201,6 @@ mod tests {
 
     #[test]
     fn each_kind_of_file_has_its_own_wording() {
-        assert_eq!(button_label(FileKind::Account), "Order overview tabs");
-        assert_eq!(button_label(FileKind::Character), "Order chat tabs");
         assert!(explanation(FileKind::Account).contains("overview window"));
         assert!(explanation(FileKind::Character).contains("chat window"));
         assert!(nothing_to_order(FileKind::Account).contains("overview"));

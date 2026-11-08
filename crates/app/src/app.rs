@@ -300,48 +300,27 @@ impl App {
         self.main_box(ui, kind, id);
         ui.add_space(6.0);
 
-        let usable = self.state.can_copy_selected();
+        let mut chosen = None;
         ui.horizontal_wrapped(|ui| {
-            let copy = ui.add_enabled(usable, primary_button("Copy to other files"));
-            if copy
-                .on_hover_text("Choose which files, then review before anything changes")
-                .clicked()
-            {
-                self.state.begin_copy();
-            }
-            let edit = ui.add_enabled(usable, egui::Button::new("Edit settings"));
-            if edit
-                .on_hover_text("Change individual settings in this file")
-                .clicked()
-            {
-                self.state.begin_edit();
-            }
-            let tabs = ui.add_enabled(usable, egui::Button::new(tab_view::button_label(kind)));
-            if tabs
-                .on_hover_text("Change the order the game shows these tabs in")
-                .clicked()
-            {
-                self.state.begin_tabs();
-            }
-            if self.state.can_edit_formations()
-                && ui
-                    .button("Edit probe formations")
-                    .on_hover_text("Add, change and remove this account's custom probe formations")
+            for choice in self.state.file_choices() {
+                let button = if choice.primary {
+                    primary_button(choice.label)
+                } else {
+                    egui::Button::new(choice.label)
+                };
+                if ui
+                    .add_enabled(choice.enabled, button)
+                    .on_hover_text(choice.hover)
                     .clicked()
-            {
-                self.state.begin_formations();
-            }
-            let restore = ui.add_enabled(
-                self.state.can_restore_selected(),
-                egui::Button::new("Restore from a backup"),
-            );
-            if restore
-                .on_hover_text("Put this file back the way one of its backups holds it")
-                .clicked()
-            {
-                self.state.begin_restore();
+                {
+                    chosen = Some(choice.action);
+                }
             }
         });
+        if let Some(action) = chosen {
+            self.state.act_on_selected(action);
+            return;
+        }
         ui.add_space(6.0);
         if kind == FileKind::Account {
             // Account IDs can't be looked up, so the user names them.
@@ -553,9 +532,9 @@ impl App {
     }
 }
 
-/// A row's right-click menu: the same choices as the buttons beside the
-/// list, for the file that was right-clicked (which is selected by then).
-/// Returns what was chosen.
+/// A row's right-click menu: "Mark as main" and the same choices as the
+/// panel beside the list, for the file that was right-clicked (which is
+/// selected by then). Returns what was chosen.
 fn row_menu(ui: &mut egui::Ui, state: &State, kind: FileKind, id: u64) -> Option<RowAction> {
     let mut chosen = None;
     let mut marked = state.main_of(kind) == Some(id);
@@ -563,24 +542,15 @@ fn row_menu(ui: &mut egui::Ui, state: &State, kind: FileKind, id: u64) -> Option
         chosen = Some(RowAction::ToggleMain);
     }
     ui.separator();
-    let usable = state.can_copy_selected();
-    let mut item = |ui: &mut egui::Ui, enabled: bool, label: &str, action: RowAction| {
-        if ui.add_enabled(enabled, egui::Button::new(label)).clicked() {
-            chosen = Some(action);
+    for choice in state.file_choices() {
+        if ui
+            .add_enabled(choice.enabled, egui::Button::new(choice.label))
+            .on_hover_text(choice.hover)
+            .clicked()
+        {
+            chosen = Some(choice.action);
         }
-    };
-    item(ui, usable, "Copy to other files", RowAction::Copy);
-    item(ui, usable, "Edit settings", RowAction::Edit);
-    item(ui, usable, tab_view::button_label(kind), RowAction::Tabs);
-    if state.can_edit_formations() {
-        item(ui, true, "Edit probe formations", RowAction::Formations);
     }
-    item(
-        ui,
-        state.can_restore_selected(),
-        "Restore from a backup",
-        RowAction::Restore,
-    );
     chosen
 }
 

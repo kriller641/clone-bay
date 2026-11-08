@@ -189,6 +189,14 @@ fn tie_break(a: &SettingsFileEntry, b: &SettingsFileEntry) -> Ordering {
     (a.kind, a.id).cmp(&(b.kind, b.id))
 }
 
+/// What the button that opens the tab order screen says for a kind of file.
+pub fn tabs_button_label(kind: FileKind) -> &'static str {
+    match kind {
+        FileKind::Account => "Order overview tabs",
+        FileKind::Character => "Order chat tabs",
+    }
+}
+
 pub fn kind_label(kind: FileKind) -> &'static str {
     match kind {
         FileKind::Character => "Character",

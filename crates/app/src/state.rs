@@ -13,7 +13,7 @@ use clone_bay_core::names::{look_up, Lookup, NameBook};
 use crate::copy_flow::{CopyFlow, Stage};
 use crate::edit_flow::EditFlow;
 use crate::formation_flow::FormationFlow;
-use crate::list_model::{display_name, KindFilter, Row, Sort, Status};
+use crate::list_model::{display_name, tabs_button_label, KindFilter, Row, Sort, Status};
 use crate::loader::Loader;
 use crate::restore_flow::RestoreFlow;
 use crate::services::Services;
@@ -49,6 +49,20 @@ pub enum RowAction {
     Tabs,
     Formations,
     Restore,
+}
+
+/// One thing that can be done to the selected file. The panel beside the
+/// list and a row's right-click menu both draw this one list, so they
+/// always offer the same.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FileChoice {
+    pub action: RowAction,
+    pub label: &'static str,
+    /// Shown when the pointer rests on it.
+    pub hover: &'static str,
+    pub enabled: bool,
+    /// The step that moves the user forward: drawn as the filled button.
+    pub primary: bool,
 }
 
 pub struct State {
@@ -504,8 +518,60 @@ impl State {
         }
     }
 
-    /// Does what was chosen from a row's right-click menu, to the selected
-    /// file: the same as the matching button beside the list.
+    /// What can be done to the selected file, in the order offered. "Mark
+    /// as main" is not here: it is a tick box with its own question.
+    pub fn file_choices(&self) -> Vec<FileChoice> {
+        let Some(kind) = self.selected_row().map(|row| row.entry.kind) else {
+            return Vec::new();
+        };
+        let usable = self.can_copy_selected();
+        let choice = |action, label, hover, enabled| FileChoice {
+            action,
+            label,
+            hover,
+            enabled,
+            primary: action == RowAction::Copy,
+        };
+        let mut choices = vec![
+            choice(
+                RowAction::Copy,
+                "Copy to other files",
+                "Choose which files, then review before anything changes",
+                usable,
+            ),
+            choice(
+                RowAction::Edit,
+                "Edit settings",
+                "Change individual settings in this file",
+                usable,
+            ),
+            choice(
+                RowAction::Tabs,
+                tabs_button_label(kind),
+                "Change the order the game shows these tabs in",
+                usable,
+            ),
+        ];
+        // Only accounts hold formations, so only they offer the editor.
+        if self.can_edit_formations() {
+            choices.push(choice(
+                RowAction::Formations,
+                "Edit probe formations",
+                "Add, change and remove this account's custom probe formations",
+                true,
+            ));
+        }
+        choices.push(choice(
+            RowAction::Restore,
+            "Restore from a backup",
+            "Put this file back the way one of its backups holds it",
+            self.can_restore_selected(),
+        ));
+        choices
+    }
+
+    /// Does what was chosen from a row's right-click menu or the panel
+    /// beside the list, to the selected file.
     pub fn act_on_selected(&mut self, action: RowAction) {
         match action {
             RowAction::ToggleMain => self.toggle_main_selected(),
@@ -845,6 +911,61 @@ mod tests {
         assert!(!state.can_restore_selected());
         settle(&mut state);
         assert!(state.can_restore_selected());
+    }
+
+    fn offered(state: &State) -> Vec<(&'static str, bool)> {
+        state
+            .file_choices()
+            .iter()
+            .map(|choice| (choice.label, choice.enabled))
+            .collect()
+    }
+
+    #[test]
+    fn what_can_be_done_depends_on_the_file() {
+        let root = eve_root();
+        let mut state = state(Some(root.path().to_path_buf()));
+        // Nothing selected, nothing offered.
+        assert!(state.file_choices().is_empty());
+        // Not checked yet: nothing can be done.
+        state.selected_file = Some(state.rows[1].entry.path.clone());
+        assert!(offered(&state).iter().all(|(_, enabled)| !enabled));
+        settle(&mut state);
+
+        // A good account: everything, the copy first and filled.
+        assert_eq!(
+            offered(&state),
+            [
+                ("Copy to other files", true),
+                ("Edit settings", true),
+                ("Order overview tabs", true),
+                ("Edit probe formations", true),
+                ("Restore from a backup", true),
+            ]
+        );
+        let primary: Vec<_> = state
+            .file_choices()
+            .iter()
+            .filter(|choice| choice.primary)
+            .map(|choice| choice.action)
+            .collect();
+        assert_eq!(primary, [RowAction::Copy]);
+        assert!(state
+            .file_choices()
+            .iter()
+            .all(|choice| !choice.hover.is_empty()));
+
+        // A damaged character: chat tabs, no formations, only a restore.
+        state.selected_file = Some(state.rows[0].entry.path.clone());
+        assert_eq!(
+            offered(&state),
+            [
+                ("Copy to other files", false),
+                ("Edit settings", false),
+                ("Order chat tabs", false),
+                ("Restore from a backup", true),
+            ]
+        );
     }
 
     fn ids(state: &State) -> Vec<u64> {
