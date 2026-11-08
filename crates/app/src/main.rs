@@ -38,6 +38,7 @@ mod tab_view;
 mod theme;
 mod viewer;
 mod widgets;
+mod window_fit;
 
 use std::path::PathBuf;
 
@@ -72,7 +73,7 @@ fn main() -> eframe::Result {
         viewport: egui::ViewportBuilder::default()
             .with_title(APP_NAME)
             .with_inner_size(app::DEFAULT_WINDOW_SIZE)
-            .with_min_inner_size([720.0, 360.0])
+            .with_min_inner_size(app::MIN_WINDOW_SIZE)
             .with_icon(icon()),
         ..Default::default()
     };

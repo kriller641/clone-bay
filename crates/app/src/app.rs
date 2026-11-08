@@ -23,12 +23,19 @@ use crate::theme;
 use crate::widgets::{
     back_requested, marker, panel_frame, primary_button, remember_typing, sort_header,
 };
+use crate::window_fit::WindowFit;
 
-/// The size the window opens at, in points: width, then height.
+/// The size the window opens at, in points: width, then height. Once the
+/// screen's size is known the window is made the screen's full height (see
+/// `window_fit`); this height is only used until then.
 pub const DEFAULT_WINDOW_SIZE: [f32; 2] = [1560.0, 1280.0];
+
+/// The smallest the window can be made, in points.
+pub const MIN_WINDOW_SIZE: [f32; 2] = [720.0, 360.0];
 
 pub struct App {
     pub(crate) state: State,
+    window_fit: WindowFit,
 }
 
 impl App {
@@ -39,6 +46,7 @@ impl App {
         let wake = Arc::new(move || ctx.request_repaint());
         Self {
             state: State::new(folder.or_else(default_eve_root), wake),
+            window_fit: WindowFit::default(),
         }
     }
 
@@ -422,6 +430,21 @@ impl App {
         }
     }
 
+    /// Makes the window the screen's full height, once, when the screen's
+    /// size is first known.
+    fn fit_window(&mut self, ui: &egui::Ui) {
+        let ctx = ui.ctx();
+        let screen = ctx.input(|input| input.viewport().monitor_size);
+        let width = DEFAULT_WINDOW_SIZE[0];
+        if let Some(placement) =
+            self.window_fit
+                .placement(screen, width, egui::Vec2::from(MIN_WINDOW_SIZE))
+        {
+            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(placement.size));
+            ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(placement.position));
+        }
+    }
+
     /// The window's close button: closes, or keeps the window open and
     /// says why (see `State::window_close_requested`).
     fn handle_close(&mut self, ui: &egui::Ui) {
@@ -479,6 +502,7 @@ impl App {
     /// Draws the whole window into `ui`.
     pub fn draw(&mut self, ui: &mut egui::Ui) {
         self.state.receive();
+        self.fit_window(ui);
         self.handle_close(ui);
 
         // Esc and the mouse's back button, on every screen but the list.
@@ -627,6 +651,7 @@ pub(crate) mod test_support {
     pub fn harness_with(root: &Path, services: Services) -> Ui {
         let app = App {
             state: State::with_services(Some(root.to_path_buf()), quiet(), services),
+            window_fit: crate::window_fit::WindowFit::default(),
         };
         let mut harness = Harness::builder()
             // The size the real window opens at.
@@ -997,6 +1022,51 @@ mod tests {
         assert!(harness.query_by_label("Edit probe formations").is_none());
         choose(&mut harness, at, "Restore from a backup");
         assert!(matches!(harness.state().state.screen, Screen::Restore(_)));
+    }
+
+    /// The size and position the app asked for on the last frame, if any.
+    fn placement_asked(harness: &test_support::Ui) -> (Option<egui::Vec2>, Option<egui::Pos2>) {
+        let commands = harness
+            .output()
+            .viewport_output
+            .get(&egui::ViewportId::ROOT)
+            .map(|output| output.commands.clone())
+            .unwrap_or_default();
+        let size = commands.iter().find_map(|command| match command {
+            egui::ViewportCommand::InnerSize(size) => Some(*size),
+            _ => None,
+        });
+        let position = commands.iter().find_map(|command| match command {
+            egui::ViewportCommand::OuterPosition(position) => Some(*position),
+            _ => None,
+        });
+        (size, position)
+    }
+
+    #[test]
+    fn the_window_opens_at_the_screens_full_height_once() {
+        let root = eve_root();
+        let mut harness = harness(root.path());
+        // Until the screen's size is known, the window is left alone.
+        assert_eq!(placement_asked(&harness), (None, None));
+
+        harness
+            .input_mut()
+            .viewports
+            .entry(egui::ViewportId::ROOT)
+            .or_default()
+            .monitor_size = Some(egui::vec2(1920.0, 1080.0));
+        harness.step();
+        assert_eq!(
+            placement_asked(&harness),
+            (
+                Some(egui::vec2(1560.0, 995.0)),
+                Some(egui::pos2(180.0, 0.0))
+            )
+        );
+        // Once only: the user's own moving and resizing is left alone.
+        test_support::settle(&mut harness);
+        assert_eq!(placement_asked(&harness), (None, None));
     }
 
     #[test]
