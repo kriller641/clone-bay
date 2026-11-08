@@ -653,7 +653,8 @@ impl State {
     /// While the leave question is showing it means "stay"; on the copy
     /// screen's review it goes back to choosing files, as its "Back" button
     /// does; while files are being checked or copied it does nothing;
-    /// otherwise it leaves the screen as the screen's own button would.
+    /// otherwise it leaves the screen as the screen's own button would (on
+    /// the file list there is nothing to leave).
     pub fn go_back(&mut self) {
         if self.leave_prompt.take().is_some() {
             return;
@@ -662,7 +663,6 @@ impl State {
             return;
         }
         match &mut self.screen {
-            Screen::Files => {}
             Screen::Copy(flow) => match flow.stage {
                 Stage::Reviewing(_) => flow.back_to_picking(),
                 Stage::Planning | Stage::Copying => {}
@@ -1059,6 +1059,47 @@ mod tests {
             .collect();
         let cant = "This file can't be used. Restoring it from a backup may help.";
         assert_eq!(reasons, [cant, cant, cant, ""]);
+    }
+
+    #[test]
+    fn closing_while_files_are_checked_waits_and_says_so() {
+        let root = eve_root();
+        let profile = root.path().join("c_eve_tq_tranquility/settings_Default");
+        fs::write(profile.join("core_user_12.dat"), SMALL_SETTINGS).unwrap();
+        let mut state = state(Some(root.path().to_path_buf()));
+        settle(&mut state);
+        let source = state.rows.iter().find(|row| row.entry.id == 11).unwrap();
+        state.selected_file = Some(source.entry.path.clone());
+        state.begin_copy();
+        let Screen::Copy(flow) = &mut state.screen else {
+            panic!("the copy screen should be open");
+        };
+        flow.tick_visible(true);
+        flow.start_plan();
+        // The check runs in the background; until its result is taken in,
+        // the copy screen is checking files.
+        assert!(matches!(flow.stage, Stage::Planning));
+        assert!(!state.window_close_requested());
+        assert_eq!(
+            state.busy_notice.as_deref(),
+            Some("Clone Bay is still checking the files. Wait for it to finish, then close it.")
+        );
+        // Esc puts the notice away; the check carries on.
+        state.go_back();
+        assert_eq!(state.busy_notice, None);
+        assert!(
+            matches!(&state.screen, Screen::Copy(flow) if matches!(flow.stage, Stage::Planning))
+        );
+    }
+
+    #[test]
+    fn going_back_on_the_file_list_does_nothing() {
+        let root = eve_root();
+        let mut state = state(Some(root.path().to_path_buf()));
+        settle(&mut state);
+        state.go_back();
+        assert!(matches!(state.screen, Screen::Files));
+        assert_eq!(state.leave_prompt, None);
     }
 
     fn ids(state: &State) -> Vec<u64> {
