@@ -10,7 +10,9 @@ use clone_bay_core::restore::list_backups;
 use clone_bay_marshal::{encode, Value};
 use egui_kittest::kittest::Queryable;
 
-use crate::app::test_support::{click, harness_with, shows, wait_until, Ui};
+use crate::app::test_support::{
+    click, harness_with, press_esc, press_mouse_back, shows, wait_until, Ui,
+};
 use crate::restore_flow::{backup_label, RestoreFlow};
 use crate::services::Services;
 use crate::state::Screen;
@@ -220,4 +222,15 @@ fn when_eve_cant_be_checked_the_user_vouches_that_it_is_closed() {
     restore(&mut ui);
     assert!(flow(&ui).problem.is_none(), "{:?}", flow(&ui).problem);
     assert_eq!(fs::read(&file).unwrap(), settings(1));
+}
+
+#[test]
+fn esc_and_the_mouse_back_button_leave_the_restore_screen() {
+    let dir = profile();
+    let mut ui = restore_screen(dir.path(), EveStatus::NotRunning, "1");
+    press_esc(&mut ui);
+    assert!(ui.state().state.restore().is_none());
+    click(&mut ui, "Restore from a backup");
+    press_mouse_back(&mut ui);
+    assert!(ui.state().state.restore().is_none());
 }

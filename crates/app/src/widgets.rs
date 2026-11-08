@@ -149,10 +149,11 @@ fn typing_id() -> egui::Id {
     egui::Id::new("clone-bay-typing-last-frame")
 }
 
-/// Whether Esc or the mouse's back button asked to go back to the file list,
-/// like "Back to the file list". Esc pressed while typing in a box, or with
-/// a list open, only leaves the box or closes the list, as it always has.
-/// Call it before the screen's widgets, and `remember_typing` after them.
+/// Whether Esc or the mouse's back button was pressed to go back
+/// (`State::go_back` says what that does on each screen). Esc pressed while
+/// typing in a box, or with a list open, only leaves the box or closes the
+/// list, as it always has. Call it before the screen's widgets, and
+/// `remember_typing` after them.
 pub fn back_requested(ui: &egui::Ui) -> bool {
     let ctx = ui.ctx();
     // egui takes focus away on Esc before anything is drawn, so whether the

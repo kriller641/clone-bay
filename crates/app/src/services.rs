@@ -84,11 +84,38 @@ impl Services {
 
 #[cfg(test)]
 pub mod test_support {
-    use std::sync::Mutex;
+    use std::sync::{Condvar, Mutex};
 
     use clone_bay_core::names::{Answer, LookupError};
 
     use super::*;
+
+    /// Holds every check of whether EVE is running until `open` is called,
+    /// so a save or copy stays under way for as long as a test needs.
+    #[derive(Clone, Default)]
+    pub struct EveGate(Arc<(Mutex<bool>, Condvar)>);
+
+    impl EveGate {
+        /// The `eve_status` service: waits for the gate, then says EVE is
+        /// not running.
+        pub fn eve_status(&self) -> Arc<dyn Fn() -> EveStatus + Send + Sync> {
+            let gate = Arc::clone(&self.0);
+            Arc::new(move || {
+                let (open, opened) = &*gate;
+                let mut is_open = open.lock().unwrap();
+                while !*is_open {
+                    is_open = opened.wait(is_open).unwrap();
+                }
+                EveStatus::NotRunning
+            })
+        }
+
+        pub fn open(&self) {
+            let (open, opened) = &*self.0;
+            *open.lock().unwrap() = true;
+            opened.notify_all();
+        }
+    }
 
     /// A name service that knows the given characters and counts requests.
     /// Tests must never talk to the real one.

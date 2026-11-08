@@ -10,7 +10,9 @@ use clone_bay_core::tab_order::{read_file, TabLayout};
 use clone_bay_marshal::{encode, Long, Value};
 use egui_kittest::kittest::Queryable;
 
-use crate::app::test_support::{click, harness_with, settle, shows, wait_until, Ui};
+use crate::app::test_support::{
+    click, harness_with, press_esc, press_mouse_back, settle, shows, wait_until, Ui,
+};
 use crate::services::Services;
 use crate::tab_flow::TabFlow;
 
@@ -417,4 +419,42 @@ fn moves_that_cannot_be_made_change_nothing() {
     assert!(!tabs.is_dirty());
     tabs.open_on_first_tab();
     assert!(tabs.is_dirty());
+}
+
+#[test]
+fn esc_and_the_mouse_back_button_leave_the_tab_screen() {
+    let dir = profile();
+    let mut ui = tab_screen(
+        dir.path(),
+        EveStatus::NotRunning,
+        "1",
+        "Order overview tabs",
+    );
+    press_esc(&mut ui);
+    assert!(ui.state().state.tabs().is_none());
+    click(&mut ui, "Order overview tabs");
+    press_mouse_back(&mut ui);
+    assert!(ui.state().state.tabs().is_none());
+}
+
+#[test]
+fn leaving_with_an_order_not_saved_asks_first() {
+    let dir = profile();
+    let mut ui = tab_screen(
+        dir.path(),
+        EveStatus::NotRunning,
+        "1",
+        "Order overview tabs",
+    );
+    click(&mut ui, "Open on the first tab");
+    click(&mut ui, "Back to the file list");
+    ui.get_by_label("Leave without saving?");
+    click(&mut ui, "Leave without saving");
+    assert!(ui.state().state.tabs().is_none());
+    assert_eq!(
+        read_file(&dir.path().join("core_user_1.dat"))
+            .unwrap()
+            .opens_on,
+        Some(1)
+    );
 }

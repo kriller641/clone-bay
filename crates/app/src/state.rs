@@ -10,7 +10,7 @@ use clone_bay_core::discovery::{
 };
 use clone_bay_core::names::{look_up, Lookup, NameBook};
 
-use crate::copy_flow::CopyFlow;
+use crate::copy_flow::{CopyFlow, Stage};
 use crate::edit_flow::EditFlow;
 use crate::formation_flow::FormationFlow;
 use crate::list_model::{display_name, KindFilter, Row, Sort, Status};
@@ -70,6 +70,9 @@ pub struct State {
     pub main_prompt: Option<(FileKind, u64, bool)>,
     pub selected_file: Option<PathBuf>,
     pub screen: Screen,
+    /// The user asked to leave a screen that has changes not saved: waiting
+    /// for them to say whether to lose the changes or stay.
+    pub leave_prompt: bool,
     types_task: Option<Receiver<Lookup>>,
     /// Character names and account labels.
     pub names: NameBook,
@@ -104,6 +107,7 @@ impl State {
         };
         let mut state = Self {
             screen: Screen::Files,
+            leave_prompt: false,
             types_task: None,
             names,
             names_problem,
@@ -513,6 +517,76 @@ impl State {
         }
     }
 
+    /// Whether the screen showing is saving or copying.
+    fn screen_busy(&self) -> bool {
+        match &self.screen {
+            Screen::Files => false,
+            Screen::Copy(flow) => flow.busy(),
+            Screen::Edit(flow) => flow.busy(),
+            Screen::Formations(flow) => flow.busy(),
+            Screen::Tabs(flow) => flow.busy(),
+            Screen::Restore(flow) => flow.busy(),
+        }
+    }
+
+    /// Whether the screen showing holds changes that haven't been saved.
+    fn screen_unsaved(&self) -> bool {
+        match &self.screen {
+            Screen::Edit(flow) => flow.is_dirty(),
+            Screen::Formations(flow) => flow.is_dirty(),
+            Screen::Tabs(flow) => flow.is_dirty(),
+            Screen::Files | Screen::Copy(_) | Screen::Restore(_) => false,
+        }
+    }
+
+    /// The user asked to leave the screen, with its button or with Esc or
+    /// the mouse's back button. Changes not saved are never lost without
+    /// asking: the user is asked first.
+    pub fn request_close(&mut self) {
+        if self.screen_busy() {
+            // Nothing leaves while a save or copy runs; asking would only
+            // offer a choice that can't be acted on.
+            return;
+        }
+        if self.screen_unsaved() {
+            self.leave_prompt = true;
+        } else {
+            self.close_screen();
+        }
+    }
+
+    /// Esc or the mouse's back button, on any screen but the file list.
+    /// While the leave question is showing it means "stay"; on the copy
+    /// screen's review it goes back to choosing files, as its "Back" button
+    /// does; while files are being checked or copied it does nothing;
+    /// otherwise it leaves the screen as the screen's own button would.
+    pub fn go_back(&mut self) {
+        if self.leave_prompt {
+            self.leave_prompt = false;
+            return;
+        }
+        match &mut self.screen {
+            Screen::Files => {}
+            Screen::Copy(flow) => match flow.stage {
+                Stage::Reviewing(_) => flow.back_to_picking(),
+                Stage::Planning | Stage::Copying => {}
+                Stage::Picking | Stage::Done(_) => self.request_close(),
+            },
+            _ => self.request_close(),
+        }
+    }
+
+    /// The user chose to leave and lose the changes not saved.
+    pub fn confirm_leave(&mut self) {
+        self.leave_prompt = false;
+        self.close_screen();
+    }
+
+    /// The user chose to stay on the screen.
+    pub fn cancel_leave(&mut self) {
+        self.leave_prompt = false;
+    }
+
     /// Goes back to the file list. Does nothing while the screen is saving
     /// or copying. If files were changed the list is refreshed, which reads
     /// only the files that changed.
@@ -528,6 +602,7 @@ impl State {
         if busy {
             return;
         }
+        self.leave_prompt = false;
         let choice_problem = match &mut self.screen {
             Screen::Copy(flow) => {
                 flow.remember_choice();

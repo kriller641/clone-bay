@@ -12,7 +12,9 @@ use eframe::egui;
 use eframe::egui::accesskit::{Role, Toggled};
 use egui_kittest::kittest::{NodeT, Queryable};
 
-use crate::app::test_support::{click, harness_with, settle, shows, wait_until, Ui};
+use crate::app::test_support::{
+    click, harness_with, press_esc, press_mouse_back, settle, shows, wait_until, Ui,
+};
 use crate::formation_flow::FormationFlow;
 use crate::services::Services;
 
@@ -509,6 +511,9 @@ fn leaving_without_saving_does_not_relist_the_folder() {
     click(&mut ui, "Duplicate");
     fs::write(dir.path().join("core_user_7.dat"), b"new").unwrap();
     click(&mut ui, "Back to the file list");
+    // There is a change not saved, so leaving asks first.
+    assert!(ui.state().state.formations().is_some());
+    click(&mut ui, "Leave without saving");
     assert!(ui.state().state.formations().is_none());
     assert_eq!(ui.state().state.rows.len(), 2);
     assert_eq!(names(&on_disk(dir.path())), ["skatter", "long"]);
@@ -1281,4 +1286,34 @@ fn a_name_typed_a_letter_at_a_time_is_one_step_to_undo() {
     click(&mut ui, "Undo");
     assert_eq!(name(&ui), "skatter");
     assert!(!flow(&ui).can_undo());
+}
+
+#[test]
+fn esc_and_the_mouse_back_button_leave_the_editor() {
+    let dir = profile();
+    let mut ui = editor(dir.path(), EveStatus::NotRunning);
+    press_esc(&mut ui);
+    assert!(ui.state().state.formations().is_none());
+    click(&mut ui, "Edit probe formations");
+    press_mouse_back(&mut ui);
+    assert!(ui.state().state.formations().is_none());
+}
+
+#[test]
+fn esc_with_a_formation_not_saved_asks_first() {
+    let dir = profile();
+    let before = fs::read(dir.path().join("core_user_1.dat")).unwrap();
+    let mut ui = editor(dir.path(), EveStatus::NotRunning);
+    click(&mut ui, "Duplicate");
+    press_esc(&mut ui);
+    ui.get_by_label("Leave without saving?");
+    click(&mut ui, "Keep editing");
+    assert!(flow(&ui).is_dirty());
+    press_esc(&mut ui);
+    click(&mut ui, "Leave without saving");
+    assert!(ui.state().state.formations().is_none());
+    assert_eq!(
+        fs::read(dir.path().join("core_user_1.dat")).unwrap(),
+        before
+    );
 }

@@ -20,7 +20,9 @@ use crate::restore_view;
 use crate::state::{RowAction, Screen, State};
 use crate::tab_view;
 use crate::theme;
-use crate::widgets::{marker, panel_frame, primary_button, sort_header};
+use crate::widgets::{
+    back_requested, marker, panel_frame, primary_button, remember_typing, sort_header,
+};
 
 /// The size the window opens at, in points: width, then height.
 pub const DEFAULT_WINDOW_SIZE: [f32; 2] = [1560.0, 1280.0];
@@ -395,6 +397,31 @@ impl App {
     }
 }
 
+impl App {
+    /// Asks before leaving a screen whose changes haven't been saved.
+    fn leave_question(&mut self, ui: &mut egui::Ui) {
+        let modal = egui::Modal::new(egui::Id::new("leave without saving")).show(ui.ctx(), |ui| {
+            ui.heading("Leave without saving?");
+            ui.add_space(4.0);
+            ui.label("Your changes haven't been saved. If you leave now they are lost.");
+            ui.label("The file stays as it is.");
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                if ui.add(primary_button("Keep editing")).clicked() {
+                    self.state.cancel_leave();
+                }
+                if ui.button("Leave without saving").clicked() {
+                    self.state.confirm_leave();
+                }
+            })
+        });
+        // Esc or a click outside the question means stay.
+        if modal.should_close() {
+            self.state.cancel_leave();
+        }
+    }
+}
+
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.draw(ui);
@@ -437,6 +464,9 @@ impl App {
     pub fn draw(&mut self, ui: &mut egui::Ui) {
         self.state.receive();
 
+        // Esc and the mouse's back button, on every screen but the list.
+        // Read before the screen is drawn: see `back_requested`.
+        let back = !matches!(self.state.screen, Screen::Files) && back_requested(ui);
         let State { screen, names, .. } = &mut self.state;
         let close = match screen {
             Screen::Files => None,
@@ -472,8 +502,14 @@ impl App {
             ),
         };
         if let Some(close) = close {
-            if close {
-                self.state.close_screen();
+            remember_typing(ui);
+            if back {
+                self.state.go_back();
+            } else if close {
+                self.state.request_close();
+            }
+            if self.state.leave_prompt {
+                self.leave_question(ui);
             }
             return;
         }
@@ -622,6 +658,26 @@ pub(crate) mod test_support {
         harness.drag_at(at);
         harness.step();
         harness.drop_at(at);
+        settle(harness);
+    }
+
+    /// Presses Esc with nothing being typed.
+    pub fn press_esc(harness: &mut Ui) {
+        harness.key_press(egui::Key::Escape);
+        settle(harness);
+    }
+
+    /// Presses the mouse's back button, with the pointer in the window.
+    pub fn press_mouse_back(harness: &mut Ui) {
+        let at = egui::pos2(10.0, 10.0);
+        for pressed in [true, false] {
+            harness.event(egui::Event::PointerButton {
+                pos: at,
+                button: egui::PointerButton::Extra1,
+                pressed,
+                modifiers: egui::Modifiers::default(),
+            });
+        }
         settle(harness);
     }
 

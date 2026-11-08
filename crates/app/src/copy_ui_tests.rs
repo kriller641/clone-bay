@@ -10,9 +10,12 @@ use clone_bay_marshal::{decode, encode, Long, Value};
 use eframe::egui;
 use egui_kittest::kittest::{NodeT, Queryable};
 
-use crate::app::test_support::{click, harness_with, settle, shows, wait_until, Ui};
+use crate::app::test_support::{
+    click, harness_with, press_esc, press_mouse_back, settle, shows, wait_until, Ui,
+};
 use crate::copy_flow::Stage;
 use crate::copy_view::{action_text, outcome_text};
+use crate::services::test_support::EveGate;
 use crate::services::Services;
 
 fn b(text: &str) -> Value {
@@ -1269,4 +1272,61 @@ fn the_review_says_when_the_source_overview_was_left_on_another_tab() {
         fs::read(dir.path().join("core_user_1.dat")).unwrap(),
         source
     );
+}
+
+#[test]
+fn esc_steps_back_from_the_review_then_leaves() {
+    let dir = profile();
+    let before = fs::read(dir.path().join("core_user_2.dat")).unwrap();
+    let mut ui = copy_screen(dir.path(), EveStatus::NotRunning);
+    click(&mut ui, "2");
+    check_files(&mut ui);
+    // From the review, back one step, as its "Back" button does.
+    press_esc(&mut ui);
+    assert!(stage_is(&ui, |stage| matches!(stage, Stage::Picking)));
+    ui.get_by_label("1 file ticked");
+    // From choosing files, out to the list, as "Cancel" does.
+    press_mouse_back(&mut ui);
+    assert!(ui.state().state.copy().is_none());
+    assert_eq!(
+        fs::read(dir.path().join("core_user_2.dat")).unwrap(),
+        before
+    );
+}
+
+#[test]
+fn esc_leaves_the_result_of_a_copy() {
+    let dir = profile();
+    let mut ui = copy_screen(dir.path(), EveStatus::NotRunning);
+    click(&mut ui, "2");
+    check_files(&mut ui);
+    copy_now(&mut ui);
+    assert!(stage_is(&ui, |stage| matches!(stage, Stage::Done(_))));
+    press_esc(&mut ui);
+    assert!(ui.state().state.copy().is_none());
+}
+
+#[test]
+fn esc_does_nothing_while_files_are_copied() {
+    let dir = profile();
+    let gate = EveGate::default();
+    let services = Services {
+        eve_status: gate.eve_status(),
+        ..services(EveStatus::NotRunning)
+    };
+    let mut ui = harness_with(dir.path(), services);
+    click(&mut ui, "1");
+    click(&mut ui, "Copy to other files");
+    click(&mut ui, "2");
+    check_files(&mut ui);
+    click(&mut ui, "Copy now");
+    assert!(stage_is(&ui, |stage| matches!(stage, Stage::Copying)));
+    press_esc(&mut ui);
+    press_mouse_back(&mut ui);
+    assert!(stage_is(&ui, |stage| matches!(stage, Stage::Copying)));
+    gate.open();
+    wait_until(&mut ui, |app| {
+        app.state.copy().is_some_and(|flow| !flow.busy())
+    });
+    assert!(stage_is(&ui, |stage| matches!(stage, Stage::Done(Ok(_)))));
 }

@@ -13,9 +13,11 @@ use eframe::egui;
 use eframe::egui::accesskit::Role;
 use egui_kittest::kittest::{NodeT, Queryable};
 
-use crate::app::test_support::{click, harness_with, settle, shows, wait_until, Ui};
+use crate::app::test_support::{
+    click, harness_with, press_esc, press_mouse_back, settle, shows, wait_until, Ui,
+};
 use crate::edit_flow::EditFlow;
-use crate::services::test_support::FakeNames;
+use crate::services::test_support::{EveGate, FakeNames};
 use crate::services::Services;
 
 fn b(text: &str) -> Value {
@@ -1459,8 +1461,7 @@ fn kinds_of_result_are_offered_by_category_with_the_filters_own_kept() {
 fn esc_goes_back_to_the_file_list() {
     let dir = profile();
     let mut ui = edit_screen(dir.path(), EveStatus::NotRunning, "2");
-    ui.key_press(egui::Key::Escape);
-    settle(&mut ui);
+    press_esc(&mut ui);
     assert!(ui.state().state.edit().is_none());
     ui.get_by_label("Rescan");
 }
@@ -1469,16 +1470,50 @@ fn esc_goes_back_to_the_file_list() {
 fn the_mouse_back_button_goes_back_to_the_file_list() {
     let dir = profile();
     let mut ui = edit_screen(dir.path(), EveStatus::NotRunning, "2");
-    let at = ui.get_by_label("Back to the file list").rect().center();
-    for pressed in [true, false] {
-        ui.event(egui::Event::PointerButton {
-            pos: at,
-            button: egui::PointerButton::Extra1,
-            pressed,
-            modifiers: egui::Modifiers::default(),
-        });
-    }
-    settle(&mut ui);
+    press_mouse_back(&mut ui);
+    assert!(ui.state().state.edit().is_none());
+}
+
+#[test]
+fn leaving_with_changes_not_saved_asks_first() {
+    let dir = profile();
+    let before = fs::read(dir.path().join("core_user_1.dat")).unwrap();
+    let mut ui = edit_screen(dir.path(), EveStatus::NotRunning, "1");
+    click(&mut ui, "Camera shake");
+    assert!(flow(&ui).is_dirty());
+
+    // Esc asks; Esc again means stay, keeping the change.
+    press_esc(&mut ui);
+    ui.get_by_label("Leave without saving?");
+    assert!(ui.state().state.edit().is_some());
+    press_esc(&mut ui);
+    assert!(!shows(&ui, "Leave without saving?"));
+    assert!(flow(&ui).is_dirty());
+
+    // The button asks too; "Keep editing" stays.
+    click(&mut ui, "Back to the file list");
+    click(&mut ui, "Keep editing");
+    assert!(!shows(&ui, "Leave without saving?"));
+    assert!(flow(&ui).is_dirty());
+
+    // The mouse's back button asks; leaving loses the change.
+    press_mouse_back(&mut ui);
+    click(&mut ui, "Leave without saving");
+    assert!(ui.state().state.edit().is_none());
+    assert!(!ui.state().state.leave_prompt);
+    assert_eq!(
+        fs::read(dir.path().join("core_user_1.dat")).unwrap(),
+        before
+    );
+}
+
+#[test]
+fn after_discarding_leaving_does_not_ask() {
+    let dir = profile();
+    let mut ui = edit_screen(dir.path(), EveStatus::NotRunning, "1");
+    click(&mut ui, "Camera shake");
+    click(&mut ui, "Discard changes");
+    press_esc(&mut ui);
     assert!(ui.state().state.edit().is_none());
 }
 
@@ -1526,4 +1561,31 @@ fn esc_with_a_list_open_only_closes_the_list() {
         "still on the edit screen"
     );
     assert!(!egui::Popup::is_any_open(&ui.ctx));
+}
+
+#[test]
+fn esc_while_saving_neither_leaves_nor_asks() {
+    let dir = profile();
+    let gate = EveGate::default();
+    let services = Services {
+        eve_status: gate.eve_status(),
+        ..services(EveStatus::NotRunning)
+    };
+    let mut ui = harness_with(dir.path(), services);
+    click(&mut ui, "1");
+    click(&mut ui, "Edit settings");
+    click(&mut ui, "Camera shake");
+    click(&mut ui, "Save changes");
+    assert!(flow(&ui).busy());
+    press_esc(&mut ui);
+    press_mouse_back(&mut ui);
+    assert!(ui.state().state.edit().is_some());
+    assert!(!ui.state().state.leave_prompt);
+    gate.open();
+    wait_until(&mut ui, |app| {
+        app.state.edit().is_some_and(|flow| !flow.busy())
+    });
+    // Saved, so nothing is left to lose: Esc now leaves without asking.
+    press_esc(&mut ui);
+    assert!(ui.state().state.edit().is_none());
 }
