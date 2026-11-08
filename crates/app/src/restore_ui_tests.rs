@@ -11,9 +11,11 @@ use clone_bay_marshal::{encode, Value};
 use egui_kittest::kittest::Queryable;
 
 use crate::app::test_support::{
-    click, harness_with, press_esc, press_mouse_back, shows, wait_until, Ui,
+    click, harness_with, press_esc, press_mouse_back, press_window_close, settle, shows,
+    wait_until, Ui,
 };
 use crate::restore_flow::{backup_label, RestoreFlow};
+use crate::services::test_support::EveGate;
 use crate::services::Services;
 use crate::state::Screen;
 
@@ -233,4 +235,33 @@ fn esc_and_the_mouse_back_button_leave_the_restore_screen() {
     click(&mut ui, "Restore from a backup");
     press_mouse_back(&mut ui);
     assert!(ui.state().state.restore().is_none());
+}
+
+#[test]
+fn the_window_stays_open_while_a_file_is_restored() {
+    let dir = profile();
+    let file = dir.path().join("core_user_1.dat");
+    let gate = EveGate::default();
+    let services = Services {
+        eve_status: gate.eve_status(),
+        ..services(EveStatus::NotRunning)
+    };
+    let mut ui = harness_with(dir.path(), services);
+    click(&mut ui, "1");
+    click(&mut ui, "Restore from a backup");
+    let label = label_of(&file, 0);
+    click(&mut ui, &label);
+    click(&mut ui, "Restore this backup");
+    assert!(flow(&ui).busy());
+    press_esc(&mut ui);
+    assert!(ui.state().state.restore().is_some());
+    assert!(press_window_close(&mut ui));
+    ui.get_by_label("Clone Bay is still restoring the file. Wait for it to finish, then close it.");
+    click(&mut ui, "OK");
+    gate.open();
+    wait_until(&mut ui, |app| {
+        app.state.restore().is_some_and(|flow| !flow.busy())
+    });
+    settle(&mut ui);
+    assert!(!press_window_close(&mut ui));
 }

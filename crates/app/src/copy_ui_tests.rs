@@ -11,7 +11,8 @@ use eframe::egui;
 use egui_kittest::kittest::{NodeT, Queryable};
 
 use crate::app::test_support::{
-    click, harness_with, press_esc, press_mouse_back, settle, shows, wait_until, Ui,
+    click, harness_with, press_esc, press_mouse_back, press_window_close, settle, shows,
+    wait_until, Ui,
 };
 use crate::copy_flow::Stage;
 use crate::copy_view::{action_text, outcome_text};
@@ -1329,4 +1330,47 @@ fn esc_does_nothing_while_files_are_copied() {
         app.state.copy().is_some_and(|flow| !flow.busy())
     });
     assert!(stage_is(&ui, |stage| matches!(stage, Stage::Done(Ok(_)))));
+}
+
+#[test]
+fn the_window_stays_open_while_files_are_copied() {
+    let dir = profile();
+    let gate = EveGate::default();
+    let services = Services {
+        eve_status: gate.eve_status(),
+        ..services(EveStatus::NotRunning)
+    };
+    let mut ui = harness_with(dir.path(), services);
+    click(&mut ui, "1");
+    click(&mut ui, "Copy to other files");
+    click(&mut ui, "2");
+    check_files(&mut ui);
+    click(&mut ui, "Copy now");
+    assert!(press_window_close(&mut ui));
+    ui.get_by_label("Clone Bay is still copying. Wait for it to finish, then close it.");
+    // Esc puts the notice away too.
+    press_esc(&mut ui);
+    assert!(ui.state().state.busy_notice.is_none());
+    assert!(stage_is(&ui, |stage| matches!(stage, Stage::Copying)));
+    gate.open();
+    wait_until(&mut ui, |app| {
+        app.state.copy().is_some_and(|flow| !flow.busy())
+    });
+    assert!(!press_window_close(&mut ui));
+}
+
+#[test]
+fn closing_the_window_remembers_the_choice() {
+    let dir = grouped_profile();
+    let memory = tempfile::tempdir().unwrap();
+    let choices = memory.path().join("choices.tsv");
+    let mut ui = copy_screen_remembering(dir.path(), &choices);
+    click(&mut ui, "Only what I tick");
+    click(&mut ui, "Everything else");
+    assert!(!press_window_close(&mut ui));
+    drop(ui);
+
+    let ui = copy_screen_remembering(dir.path(), &choices);
+    assert!(!flow(&ui).scope.everything);
+    assert!(!flow(&ui).scope.everything_else);
 }

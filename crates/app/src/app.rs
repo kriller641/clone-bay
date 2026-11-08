@@ -17,7 +17,7 @@ use crate::list_model::{
     status_label, tally, visible_rows, KindFilter, SortColumn, Status,
 };
 use crate::restore_view;
-use crate::state::{RowAction, Screen, State};
+use crate::state::{Leaving, RowAction, Screen, State};
 use crate::tab_view;
 use crate::theme;
 use crate::widgets::{
@@ -311,6 +311,7 @@ impl App {
                 if ui
                     .add_enabled(choice.enabled, button)
                     .on_hover_text(choice.hover)
+                    .on_disabled_hover_text(choice.why_not)
                     .clicked()
                 {
                     chosen = Some(choice.action);
@@ -377,10 +378,15 @@ impl App {
 }
 
 impl App {
-    /// Asks before leaving a screen whose changes haven't been saved.
-    fn leave_question(&mut self, ui: &mut egui::Ui) {
+    /// Asks before leaving a screen, or closing the window, while changes
+    /// haven't been saved.
+    fn leave_question(&mut self, ui: &mut egui::Ui, leaving: Leaving) {
+        let (title, leave) = match leaving {
+            Leaving::Screen => ("Leave without saving?", "Leave without saving"),
+            Leaving::Window => ("Close without saving?", "Close without saving"),
+        };
         let modal = egui::Modal::new(egui::Id::new("leave without saving")).show(ui.ctx(), |ui| {
-            ui.heading("Leave without saving?");
+            ui.heading(title);
             ui.add_space(4.0);
             ui.label("Your changes haven't been saved. If you leave now they are lost.");
             ui.label("The file stays as it is.");
@@ -389,7 +395,7 @@ impl App {
                 if ui.add(primary_button("Keep editing")).clicked() {
                     self.state.cancel_leave();
                 }
-                if ui.button("Leave without saving").clicked() {
+                if ui.button(leave).clicked() {
                     self.state.confirm_leave();
                 }
             })
@@ -397,6 +403,37 @@ impl App {
         // Esc or a click outside the question means stay.
         if modal.should_close() {
             self.state.cancel_leave();
+        }
+    }
+
+    /// Says why the window didn't close.
+    fn busy_notice(&mut self, ui: &mut egui::Ui, notice: &str) {
+        let modal = egui::Modal::new(egui::Id::new("still working")).show(ui.ctx(), |ui| {
+            ui.heading("Not closed yet");
+            ui.add_space(4.0);
+            ui.label(notice);
+            ui.add_space(8.0);
+            if ui.add(primary_button("OK")).clicked() {
+                self.state.dismiss_busy_notice();
+            }
+        });
+        if modal.should_close() {
+            self.state.dismiss_busy_notice();
+        }
+    }
+
+    /// The window's close button: closes, or keeps the window open and
+    /// says why (see `State::window_close_requested`).
+    fn handle_close(&mut self, ui: &egui::Ui) {
+        let ctx = ui.ctx();
+        if ctx.input(|input| input.viewport().close_requested())
+            && !self.state.window_close_requested()
+        {
+            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+        }
+        if self.state.close_window {
+            // The user chose to close without saving.
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
     }
 }
@@ -442,6 +479,7 @@ impl App {
     /// Draws the whole window into `ui`.
     pub fn draw(&mut self, ui: &mut egui::Ui) {
         self.state.receive();
+        self.handle_close(ui);
 
         // Esc and the mouse's back button, on every screen but the list.
         // Read before the screen is drawn: see `back_requested`.
@@ -487,8 +525,11 @@ impl App {
             } else if close {
                 self.state.request_close();
             }
-            if self.state.leave_prompt {
-                self.leave_question(ui);
+            if let Some(leaving) = self.state.leave_prompt {
+                self.leave_question(ui, leaving);
+            }
+            if let Some(notice) = self.state.busy_notice.clone() {
+                self.busy_notice(ui, &notice);
             }
             return;
         }
@@ -546,6 +587,7 @@ fn row_menu(ui: &mut egui::Ui, state: &State, kind: FileKind, id: u64) -> Option
         if ui
             .add_enabled(choice.enabled, egui::Button::new(choice.label))
             .on_hover_text(choice.hover)
+            .on_disabled_hover_text(choice.why_not)
             .clicked()
         {
             chosen = Some(choice.action);
@@ -635,6 +677,40 @@ pub(crate) mod test_support {
     pub fn press_esc(harness: &mut Ui) {
         harness.key_press(egui::Key::Escape);
         settle(harness);
+    }
+
+    /// Presses the window's close button. Returns whether the app kept the
+    /// window open.
+    pub fn press_window_close(harness: &mut Ui) -> bool {
+        let root = egui::ViewportId::ROOT;
+        let input = harness.input_mut();
+        input
+            .viewports
+            .entry(root)
+            .or_default()
+            .events
+            .push(egui::ViewportEvent::Close);
+        harness.step();
+        let kept_open = harness
+            .output()
+            .viewport_output
+            .get(&root)
+            .is_some_and(|output| {
+                output
+                    .commands
+                    .contains(&egui::ViewportCommand::CancelClose)
+            });
+        settle(harness);
+        kept_open
+    }
+
+    /// Whether the app has told the window to close.
+    pub fn closing(harness: &Ui) -> bool {
+        harness
+            .output()
+            .viewport_output
+            .get(&egui::ViewportId::ROOT)
+            .is_some_and(|output| output.commands.contains(&egui::ViewportCommand::Close))
     }
 
     /// Presses the mouse's back button, with the pointer in the window.

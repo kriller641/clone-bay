@@ -39,6 +39,15 @@ pub enum Screen {
     Restore(RestoreFlow),
 }
 
+/// What a question about losing unsaved changes is about.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Leaving {
+    /// Going back to the file list.
+    Screen,
+    /// Closing the window.
+    Window,
+}
+
 /// What a row's right-click menu offers: a second way to the buttons beside
 /// the list, for the file that was right-clicked.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -61,6 +70,9 @@ pub struct FileChoice {
     /// Shown when the pointer rests on it.
     pub hover: &'static str,
     pub enabled: bool,
+    /// Why it can't be used, shown when the pointer rests on it while it is
+    /// greyed out. Empty when it can be used.
+    pub why_not: &'static str,
     /// The step that moves the user forward: drawn as the filled button.
     pub primary: bool,
 }
@@ -84,9 +96,14 @@ pub struct State {
     pub main_prompt: Option<(FileKind, u64, bool)>,
     pub selected_file: Option<PathBuf>,
     pub screen: Screen,
-    /// The user asked to leave a screen that has changes not saved: waiting
-    /// for them to say whether to lose the changes or stay.
-    pub leave_prompt: bool,
+    /// The user asked to leave a screen, or close the window, while it has
+    /// changes not saved: waiting for them to say whether to lose the
+    /// changes or stay.
+    pub leave_prompt: Option<Leaving>,
+    /// Why the window wasn't closed: work on the files was still under way.
+    pub busy_notice: Option<String>,
+    /// The user chose to close the window; `app` closes it.
+    pub close_window: bool,
     types_task: Option<Receiver<Lookup>>,
     /// Character names and account labels.
     pub names: NameBook,
@@ -121,7 +138,9 @@ impl State {
         };
         let mut state = Self {
             screen: Screen::Files,
-            leave_prompt: false,
+            leave_prompt: None,
+            busy_notice: None,
+            close_window: false,
             types_task: None,
             names,
             names_problem,
@@ -521,15 +540,24 @@ impl State {
     /// What can be done to the selected file, in the order offered. "Mark
     /// as main" is not here: it is a tick box with its own question.
     pub fn file_choices(&self) -> Vec<FileChoice> {
-        let Some(kind) = self.selected_row().map(|row| row.entry.kind) else {
+        let Some(row) = self.selected_row() else {
             return Vec::new();
         };
+        let kind = row.entry.kind;
+        let why_not = match row.status {
+            Status::Pending => "Still checking this file.",
+            Status::Unreadable(_) => {
+                "This file can't be used. Restoring it from a backup may help."
+            }
+            Status::Readable(_) => "",
+        };
         let usable = self.can_copy_selected();
-        let choice = |action, label, hover, enabled| FileChoice {
+        let choice = |action, label, hover, enabled: bool| FileChoice {
             action,
             label,
             hover,
             enabled,
+            why_not: if enabled { "" } else { why_not },
             primary: action == RowAction::Copy,
         };
         let mut choices = vec![
@@ -615,7 +643,7 @@ impl State {
             return;
         }
         if self.screen_unsaved() {
-            self.leave_prompt = true;
+            self.leave_prompt = Some(Leaving::Screen);
         } else {
             self.close_screen();
         }
@@ -627,8 +655,10 @@ impl State {
     /// does; while files are being checked or copied it does nothing;
     /// otherwise it leaves the screen as the screen's own button would.
     pub fn go_back(&mut self) {
-        if self.leave_prompt {
-            self.leave_prompt = false;
+        if self.leave_prompt.take().is_some() {
+            return;
+        }
+        if self.busy_notice.take().is_some() {
             return;
         }
         match &mut self.screen {
@@ -644,13 +674,61 @@ impl State {
 
     /// The user chose to leave and lose the changes not saved.
     pub fn confirm_leave(&mut self) {
-        self.leave_prompt = false;
-        self.close_screen();
+        match self.leave_prompt.take() {
+            Some(Leaving::Screen) => self.close_screen(),
+            Some(Leaving::Window) => self.close_window = true,
+            None => {}
+        }
     }
 
     /// The user chose to stay on the screen.
     pub fn cancel_leave(&mut self) {
-        self.leave_prompt = false;
+        self.leave_prompt = None;
+    }
+
+    /// The window's close button (or Alt+F4) was pressed. Returns whether
+    /// the window may close now. It may not while files are being written:
+    /// the user is told to wait, since stopping a copy partway would leave
+    /// some files copied onto and others not. With changes not saved the
+    /// user is asked first, as when leaving a screen. A copy screen's
+    /// choice of what to copy is remembered, as on leaving the screen.
+    pub fn window_close_requested(&mut self) -> bool {
+        if self.close_window {
+            return true;
+        }
+        if let Some(work) = self.work_under_way() {
+            self.leave_prompt = None;
+            self.busy_notice = Some(format!(
+                "Clone Bay is still {work}. Wait for it to finish, then close it."
+            ));
+            return false;
+        }
+        if self.screen_unsaved() {
+            self.leave_prompt = Some(Leaving::Window);
+            return false;
+        }
+        if let Screen::Copy(flow) = &mut self.screen {
+            flow.remember_choice();
+        }
+        true
+    }
+
+    /// What the screen is busy doing, in words, if it is.
+    fn work_under_way(&self) -> Option<&'static str> {
+        if !self.screen_busy() {
+            return None;
+        }
+        Some(match &self.screen {
+            Screen::Copy(flow) if matches!(flow.stage, Stage::Planning) => "checking the files",
+            Screen::Copy(_) => "copying",
+            Screen::Restore(_) => "restoring the file",
+            _ => "saving",
+        })
+    }
+
+    /// The user has read why the window didn't close.
+    pub fn dismiss_busy_notice(&mut self) {
+        self.busy_notice = None;
     }
 
     /// Goes back to the file list. Does nothing while the screen is saving
@@ -668,7 +746,7 @@ impl State {
         if busy {
             return;
         }
-        self.leave_prompt = false;
+        self.leave_prompt = None;
         let choice_problem = match &mut self.screen {
             Screen::Copy(flow) => {
                 flow.remember_choice();
@@ -927,10 +1005,18 @@ mod tests {
         let mut state = state(Some(root.path().to_path_buf()));
         // Nothing selected, nothing offered.
         assert!(state.file_choices().is_empty());
-        // Not checked yet: nothing can be done.
+        // Not checked yet: nothing can be done, and each says why.
         state.selected_file = Some(state.rows[1].entry.path.clone());
         assert!(offered(&state).iter().all(|(_, enabled)| !enabled));
+        assert!(state
+            .file_choices()
+            .iter()
+            .all(|choice| choice.why_not == "Still checking this file."));
         settle(&mut state);
+        assert!(state
+            .file_choices()
+            .iter()
+            .all(|choice| choice.why_not.is_empty()));
 
         // A good account: everything, the copy first and filled.
         assert_eq!(
@@ -966,6 +1052,13 @@ mod tests {
                 ("Restore from a backup", true),
             ]
         );
+        let reasons: Vec<_> = state
+            .file_choices()
+            .iter()
+            .map(|choice| choice.why_not)
+            .collect();
+        let cant = "This file can't be used. Restoring it from a backup may help.";
+        assert_eq!(reasons, [cant, cant, cant, ""]);
     }
 
     fn ids(state: &State) -> Vec<u64> {

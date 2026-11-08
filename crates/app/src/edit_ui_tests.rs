@@ -14,7 +14,8 @@ use eframe::egui::accesskit::Role;
 use egui_kittest::kittest::{NodeT, Queryable};
 
 use crate::app::test_support::{
-    click, harness_with, press_esc, press_mouse_back, settle, shows, wait_until, Ui,
+    click, closing, harness_with, press_esc, press_mouse_back, press_window_close, settle, shows,
+    wait_until, Ui,
 };
 use crate::edit_flow::EditFlow;
 use crate::services::test_support::{EveGate, FakeNames};
@@ -1500,7 +1501,7 @@ fn leaving_with_changes_not_saved_asks_first() {
     press_mouse_back(&mut ui);
     click(&mut ui, "Leave without saving");
     assert!(ui.state().state.edit().is_none());
-    assert!(!ui.state().state.leave_prompt);
+    assert!(ui.state().state.leave_prompt.is_none());
     assert_eq!(
         fs::read(dir.path().join("core_user_1.dat")).unwrap(),
         before
@@ -1580,7 +1581,7 @@ fn esc_while_saving_neither_leaves_nor_asks() {
     press_esc(&mut ui);
     press_mouse_back(&mut ui);
     assert!(ui.state().state.edit().is_some());
-    assert!(!ui.state().state.leave_prompt);
+    assert!(ui.state().state.leave_prompt.is_none());
     gate.open();
     wait_until(&mut ui, |app| {
         app.state.edit().is_some_and(|flow| !flow.busy())
@@ -1588,4 +1589,63 @@ fn esc_while_saving_neither_leaves_nor_asks() {
     // Saved, so nothing is left to lose: Esc now leaves without asking.
     press_esc(&mut ui);
     assert!(ui.state().state.edit().is_none());
+}
+
+#[test]
+fn closing_the_window_with_changes_not_saved_asks_first() {
+    let dir = profile();
+    let before = fs::read(dir.path().join("core_user_1.dat")).unwrap();
+    let mut ui = edit_screen(dir.path(), EveStatus::NotRunning, "1");
+    // Nothing changed: the window closes.
+    assert!(!press_window_close(&mut ui));
+
+    click(&mut ui, "Camera shake");
+    assert!(press_window_close(&mut ui), "kept open to ask");
+    ui.get_by_label("Close without saving?");
+    click(&mut ui, "Keep editing");
+    assert!(ui.state().state.leave_prompt.is_none());
+    assert!(!closing(&ui));
+    assert!(flow(&ui).is_dirty());
+
+    assert!(press_window_close(&mut ui));
+    // Esc means stay, as with any question.
+    press_esc(&mut ui);
+    assert!(!shows(&ui, "Close without saving?"));
+    assert!(ui.state().state.edit().is_some());
+
+    assert!(press_window_close(&mut ui));
+    click(&mut ui, "Close without saving");
+    assert!(closing(&ui));
+    // The close that follows isn't stopped.
+    assert!(!press_window_close(&mut ui));
+    assert_eq!(
+        fs::read(dir.path().join("core_user_1.dat")).unwrap(),
+        before
+    );
+}
+
+#[test]
+fn the_window_stays_open_while_a_save_runs() {
+    let dir = profile();
+    let gate = EveGate::default();
+    let services = Services {
+        eve_status: gate.eve_status(),
+        ..services(EveStatus::NotRunning)
+    };
+    let mut ui = harness_with(dir.path(), services);
+    click(&mut ui, "1");
+    click(&mut ui, "Edit settings");
+    click(&mut ui, "Camera shake");
+    click(&mut ui, "Save changes");
+    assert!(press_window_close(&mut ui));
+    ui.get_by_label("Clone Bay is still saving. Wait for it to finish, then close it.");
+    // Not the unsaved-changes question: that choice can't be acted on yet.
+    assert!(!shows(&ui, "Close without saving?"));
+    click(&mut ui, "OK");
+    assert!(ui.state().state.busy_notice.is_none());
+    gate.open();
+    wait_until(&mut ui, |app| {
+        app.state.edit().is_some_and(|flow| !flow.busy())
+    });
+    assert!(!press_window_close(&mut ui));
 }

@@ -13,9 +13,11 @@ use eframe::egui::accesskit::{Role, Toggled};
 use egui_kittest::kittest::{NodeT, Queryable};
 
 use crate::app::test_support::{
-    click, harness_with, press_esc, press_mouse_back, settle, shows, wait_until, Ui,
+    click, harness_with, press_esc, press_mouse_back, press_window_close, settle, shows,
+    wait_until, Ui,
 };
 use crate::formation_flow::FormationFlow;
+use crate::services::test_support::EveGate;
 use crate::services::Services;
 
 fn b(text: &str) -> Value {
@@ -1316,4 +1318,33 @@ fn esc_with_a_formation_not_saved_asks_first() {
         fs::read(dir.path().join("core_user_1.dat")).unwrap(),
         before
     );
+}
+
+#[test]
+fn nothing_leaves_the_editor_while_it_saves() {
+    let dir = profile();
+    let gate = EveGate::default();
+    let services = Services {
+        eve_status: gate.eve_status(),
+        ..services(EveStatus::NotRunning)
+    };
+    let mut ui = harness_with(dir.path(), services);
+    click(&mut ui, "1");
+    click(&mut ui, "Edit probe formations");
+    click(&mut ui, "Duplicate");
+    click(&mut ui, "Save changes");
+    assert!(flow(&ui).busy());
+    // Neither leaves nor asks: the changes are being saved.
+    press_esc(&mut ui);
+    assert!(ui.state().state.formations().is_some());
+    assert!(ui.state().state.leave_prompt.is_none());
+    assert!(press_window_close(&mut ui));
+    ui.get_by_label("Clone Bay is still saving. Wait for it to finish, then close it.");
+    click(&mut ui, "OK");
+    gate.open();
+    wait_until(&mut ui, |app| {
+        app.state.formations().is_some_and(|flow| !flow.busy())
+    });
+    press_esc(&mut ui);
+    assert!(ui.state().state.formations().is_none());
 }
