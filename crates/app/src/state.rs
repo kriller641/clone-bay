@@ -18,6 +18,7 @@ use crate::loader::Loader;
 use crate::restore_flow::RestoreFlow;
 use crate::services::Services;
 use crate::tab_flow::TabFlow;
+use crate::update_flow::UpdateFlow;
 
 /// Called from background threads to ask the window to redraw.
 pub type Wake = Arc<dyn Fn() + Send + Sync>;
@@ -104,6 +105,9 @@ pub struct State {
     pub busy_notice: Option<String>,
     /// The user chose to close the window; `app` closes it.
     pub close_window: bool,
+    /// Looking for and installing a newer version. `None` when the app
+    /// can't (it couldn't find its own exe).
+    pub update: Option<UpdateFlow>,
     types_task: Option<Receiver<Lookup>>,
     /// Character names and account labels.
     pub names: NameBook,
@@ -121,8 +125,14 @@ pub struct State {
 
 impl State {
     /// Opens `folder` if there is one, otherwise starts empty.
-    pub fn new(folder: Option<PathBuf>, wake: Wake) -> Self {
-        Self::with_services(folder, wake, Services::real())
+    /// `updated_from` is the version this one has just replaced.
+    pub fn new(folder: Option<PathBuf>, wake: Wake, updated_from: Option<String>) -> Self {
+        let mut services = Services::real();
+        // Made here, not in `with_services`, so it can say what it replaced.
+        let updater = services.updater.take();
+        let mut state = Self::with_services(folder, Arc::clone(&wake), services);
+        state.update = updater.map(|updater| UpdateFlow::new(updater, wake, updated_from));
+        state
     }
 
     pub fn with_services(folder: Option<PathBuf>, wake: Wake, services: Services) -> Self {
@@ -136,7 +146,12 @@ impl State {
             },
             None => (NameBook::default(), None),
         };
+        let update = services
+            .updater
+            .clone()
+            .map(|updater| UpdateFlow::new(updater, Arc::clone(&wake), None));
         let mut state = Self {
+            update,
             screen: Screen::Files,
             leave_prompt: None,
             busy_notice: None,
@@ -713,6 +728,18 @@ impl State {
         true
     }
 
+    /// Installs the downloaded version and closes the window so it can
+    /// take over. It goes through the same rules as closing the window:
+    /// nothing is lost without asking, and no save or copy is cut short.
+    pub fn restart_for_update(&mut self) {
+        if !self.window_close_requested() {
+            return;
+        }
+        if self.update.as_mut().is_some_and(UpdateFlow::install) {
+            self.close_window = true;
+        }
+    }
+
     /// What the screen is busy doing, in words, if it is.
     fn work_under_way(&self) -> Option<&'static str> {
         if !self.screen_busy() {
@@ -889,6 +916,12 @@ impl State {
 
     /// Applies results that background threads have finished.
     pub fn receive(&mut self) {
+        let ready = self.update.as_mut().is_some_and(UpdateFlow::receive);
+        // The user clicked Update and stayed on the file list: restart at
+        // once. Anywhere else the notice waits for them there.
+        if ready && matches!(self.screen, Screen::Files) {
+            self.restart_for_update();
+        }
         match &mut self.screen {
             Screen::Files => {}
             Screen::Copy(flow) => flow.poll(),

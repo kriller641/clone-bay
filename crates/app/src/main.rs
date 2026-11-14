@@ -20,6 +20,7 @@ mod formation_flow;
 #[cfg(test)]
 mod formation_ui_tests;
 mod formation_view;
+mod launch;
 mod list_model;
 mod loader;
 #[cfg(test)]
@@ -36,13 +37,16 @@ mod tab_flow;
 mod tab_ui_tests;
 mod tab_view;
 mod theme;
+mod update_flow;
+#[cfg(test)]
+mod update_ui_tests;
 mod viewer;
 mod widgets;
 mod window_fit;
 
-use std::path::PathBuf;
+use std::time::Duration;
 
-use clone_bay_core::platform::{app_data_dir, claim_single_window, SingleWindow};
+use clone_bay_core::platform::{app_data_dir, claim_single_window_waiting, SingleWindow};
 use eframe::egui;
 
 const APP_NAME: &str = "Clone Bay";
@@ -61,14 +65,36 @@ fn icon() -> egui::IconData {
 }
 
 fn main() -> eframe::Result {
+    let (updated_from, folder) = match launch::parse(std::env::args_os().skip(1)) {
+        // Proves this exe runs, for the version about to be replaced by it.
+        // No window, no lock, nothing read or written.
+        launch::Launch::SelfTest(wanted) => std::process::exit(launch::self_test_code(&wanted)),
+        launch::Launch::Open {
+            updated_from,
+            folder,
+        } => (updated_from, folder),
+    };
     // Held until the app ends. If it can't be checked the app opens anyway:
-    // a second window only means a second, harmless set of backups.
-    let _window = match app_data_dir().map(|folder| claim_single_window(&folder)) {
+    // a second window only means a second, harmless set of backups. A
+    // version that has just replaced another waits for that one to close.
+    let patience = if updated_from.is_some() {
+        Duration::from_secs(10)
+    } else {
+        Duration::ZERO
+    };
+    let _window = match app_data_dir().map(|folder| claim_single_window_waiting(&folder, patience))
+    {
         Some(SingleWindow::AlreadyOpen) => return show_already_open(),
         other => other,
     };
-    // An optional folder to open instead of the detected one.
-    let folder = std::env::args_os().nth(1).map(PathBuf::from);
+    // What an update left beside the exe. The replaced exe can't be
+    // deleted until its window has fully closed, so this keeps trying for
+    // a few seconds without holding up the window.
+    if let Ok(exe) = std::env::current_exe() {
+        std::thread::spawn(move || {
+            clone_bay_core::install::clean_leftovers(&exe, 20, Duration::from_millis(250));
+        });
+    }
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title(APP_NAME)
@@ -80,7 +106,13 @@ fn main() -> eframe::Result {
     eframe::run_native(
         APP_NAME,
         options,
-        Box::new(move |creation| Ok(Box::new(app::App::new(&creation.egui_ctx, folder)))),
+        Box::new(move |creation| {
+            Ok(Box::new(app::App::new(
+                &creation.egui_ctx,
+                folder,
+                updated_from,
+            )))
+        }),
     )
 }
 

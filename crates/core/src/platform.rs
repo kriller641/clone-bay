@@ -78,6 +78,21 @@ pub fn claim_single_window(folder: &Path) -> SingleWindow {
     }
 }
 
+/// As [`claim_single_window`], but if another window is open, keeps trying
+/// for up to `patience`. Used by a version that has just replaced another,
+/// while the one it replaced is still closing.
+pub fn claim_single_window_waiting(folder: &Path, patience: std::time::Duration) -> SingleWindow {
+    let deadline = std::time::Instant::now() + patience;
+    loop {
+        match claim_single_window(folder) {
+            SingleWindow::AlreadyOpen if std::time::Instant::now() < deadline => {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+            other => return other,
+        }
+    }
+}
+
 /// Whether the EVE client is running.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EveStatus {
@@ -163,6 +178,8 @@ pub enum ShowFolderError {
     Missing(PathBuf),
     #[error("the file manager couldn't be opened ({0})")]
     CannotStart(String),
+    #[error("the web page couldn't be opened ({0})")]
+    CannotOpenPage(String),
 }
 
 /// Opens `folder` in the system's file manager.
@@ -205,9 +222,65 @@ fn file_manager(folder: &Path) -> std::process::Command {
     command
 }
 
+/// Opens a web page in the system's browser. `url` must be one of the
+/// app's own fixed links, never text from outside.
+pub fn open_url(url: &str) -> Result<(), ShowFolderError> {
+    browser(url)
+        .spawn()
+        .map(drop)
+        .map_err(|error| ShowFolderError::CannotOpenPage(error.to_string()))
+}
+
+#[cfg(windows)]
+fn browser(url: &str) -> std::process::Command {
+    // Explorer hands a web address to the default browser.
+    let explorer = std::env::var_os("SystemRoot")
+        .map(|root| PathBuf::from(root).join("explorer.exe"))
+        .unwrap_or_else(|| PathBuf::from("explorer.exe"));
+    let mut command = std::process::Command::new(explorer);
+    command.arg(url);
+    command
+}
+
+#[cfg(target_os = "macos")]
+fn browser(url: &str) -> std::process::Command {
+    let mut command = std::process::Command::new("open");
+    command.arg(url);
+    command
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
+fn browser(url: &str) -> std::process::Command {
+    let mut command = std::process::Command::new("xdg-open");
+    command.arg(url);
+    command
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn waiting_for_the_window_lock_gets_it_once_the_other_window_goes() {
+        let dir = tempfile::tempdir().unwrap();
+        let SingleWindow::Claimed(held) = claim_single_window(dir.path()) else {
+            panic!("the first claim should succeed");
+        };
+        // Without patience the second window is told one is open.
+        assert!(matches!(
+            claim_single_window_waiting(dir.path(), std::time::Duration::ZERO),
+            SingleWindow::AlreadyOpen
+        ));
+        let release = std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(200));
+            drop(held);
+        });
+        assert!(matches!(
+            claim_single_window_waiting(dir.path(), std::time::Duration::from_secs(10)),
+            SingleWindow::Claimed(_)
+        ));
+        release.join().unwrap();
+    }
 
     #[test]
     fn app_data_is_its_own_folder_under_roaming_app_data() {

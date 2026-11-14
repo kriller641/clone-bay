@@ -188,7 +188,7 @@ The fonts are the ones the egui library carries (epaint_default_fonts).
 
 How many libraries each licence covers:
 
-  MIT License (MIT): 137
+  MIT License (MIT): 138
   Apache License 2.0 (Apache-2.0): 10
   Boost Software License 1.0 (BSL-1.0): 2
   Community Data License Agreement Permissive 2.0 (CDLA-Permissive-2.0): 1
@@ -2994,6 +2994,7 @@ Used by:
   egui_glow 0.36.2  https://github.com/emilk/egui/tree/main/crates/egui_glow
   emath 0.36.2  https://github.com/emilk/egui/tree/main/crates/emath
   epaint 0.36.2  https://github.com/emilk/egui/tree/main/crates/epaint
+  minisign-verify 0.3.0  https://github.com/jedisct1/rust-minisign-verify
   profiling 1.0.18  https://github.com/aclysma/profiling
   windows-collections 0.3.2  https://github.com/microsoft/windows-rs
   windows-core 0.62.2  https://github.com/microsoft/windows-rs

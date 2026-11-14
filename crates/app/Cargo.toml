@@ -19,3 +19,6 @@ tempfile = "3"
 clone-bay-marshal.workspace = true
 # Drives the real UI in tests without opening a window.
 egui_kittest = "0.36"
+# Sign and hash test releases.
+minisign = "0.10.0"
+sha2 = "0.11.0"

@@ -365,15 +365,6 @@ pub struct Esi {
     categories: &'static [&'static str],
 }
 
-/// What ESI asks every app to send: its name and version, and a way to reach
-/// its makers, here the link to the source code.
-fn user_agent(app_version: &str) -> String {
-    format!(
-        "clone-bay/{app_version} (+{})",
-        env!("CARGO_PKG_REPOSITORY")
-    )
-}
-
 impl Esi {
     /// `app_version` goes in the User-Agent, which ESI asks every app to send.
     pub fn new(app_version: &str) -> Self {
@@ -389,19 +380,9 @@ impl Esi {
     }
 
     fn for_categories(app_version: &str, categories: &'static [&'static str]) -> Self {
-        let tls = ureq::tls::TlsConfig::builder()
-            .provider(ureq::tls::TlsProvider::NativeTls)
-            // The operating system's own trusted certificates.
-            .root_certs(ureq::tls::RootCerts::PlatformVerifier)
-            .build();
-        let agent = ureq::Agent::config_builder()
-            .user_agent(user_agent(app_version))
-            .timeout_global(Some(REQUEST_TIMEOUT))
-            // A 404 is an answer here, not a failure.
-            .http_status_as_error(false)
-            .tls_config(tls)
-            .build()
-            .new_agent();
+        // ESI asks every app to send a User-Agent naming it. A 404 is an
+        // answer here, not a failure.
+        let agent = crate::http::agent(app_version, REQUEST_TIMEOUT, false);
         Self { agent, categories }
     }
 }
@@ -594,14 +575,6 @@ mod tests {
         assert_eq!(esi.requests.borrow().last().unwrap(), &[21]);
         assert_eq!(lookup.stopped, None);
         assert_eq!(lookup.found.len(), 21);
-    }
-
-    #[test]
-    fn the_user_agent_names_the_app_version_and_source() {
-        assert_eq!(
-            user_agent("1.2.3"),
-            "clone-bay/1.2.3 (+https://github.com/kriller641/clone-bay)"
-        );
     }
 
     #[test]

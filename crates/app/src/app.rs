@@ -20,8 +20,9 @@ use crate::restore_view;
 use crate::state::{Leaving, RowAction, Screen, State};
 use crate::tab_view;
 use crate::theme;
+use crate::update_flow::{Notice, UpdateFlow};
 use crate::widgets::{
-    back_requested, marker, panel_frame, primary_button, remember_typing, sort_header,
+    back_requested, marker, note, panel_frame, primary_button, remember_typing, sort_header,
 };
 use crate::window_fit::WindowFit;
 
@@ -40,12 +41,13 @@ pub struct App {
 
 impl App {
     /// `folder` overrides the automatically detected EVE settings folder.
-    pub fn new(ctx: &egui::Context, folder: Option<PathBuf>) -> Self {
+    /// `updated_from` is the version this one has just replaced.
+    pub fn new(ctx: &egui::Context, folder: Option<PathBuf>, updated_from: Option<String>) -> Self {
         theme::apply(ctx);
         let ctx = ctx.clone();
         let wake = Arc::new(move || ctx.request_repaint());
         Self {
-            state: State::new(folder.or_else(default_eve_root), wake),
+            state: State::new(folder.or_else(default_eve_root), wake, updated_from),
             window_fit: WindowFit::default(),
         }
     }
@@ -445,6 +447,79 @@ impl App {
         }
     }
 
+    /// The band about updates, above the file list.
+    fn update_notice(&mut self, ui: &mut egui::Ui) {
+        let Some(notice) = self.state.update.as_ref().and_then(UpdateFlow::notice) else {
+            return;
+        };
+        let fill = match notice {
+            Notice::Failed(_) => theme::CAUTION,
+            _ => theme::NOTE,
+        };
+        // What was clicked, acted on after the band is drawn.
+        let mut update = false;
+        let mut restart = false;
+        let mut page = false;
+        let mut dismiss = false;
+        note(ui, fill, |ui| match &notice {
+            Notice::Available(text) => {
+                ui.label(text);
+                update = ui.button("Update").clicked();
+                page = ui.button("What's new").clicked();
+            }
+            Notice::Downloading(text) => {
+                ui.spinner();
+                ui.label(text);
+            }
+            Notice::Ready(text) => {
+                ui.label(text);
+                restart = ui.button("Restart to update").clicked();
+            }
+            Notice::Failed(text) => {
+                ui.label(text);
+                page = ui.button("Open the download page").clicked();
+                dismiss = ui.button("Dismiss").clicked();
+            }
+            Notice::Updated(text) => {
+                ui.label(text);
+                dismiss = ui.button("OK").clicked();
+            }
+        });
+        ui.add_space(6.0);
+        if restart {
+            self.state.restart_for_update();
+        }
+        if let Some(flow) = &mut self.state.update {
+            if update {
+                flow.start_update();
+            }
+            if page {
+                flow.open_page();
+            }
+            if dismiss {
+                flow.dismiss();
+            }
+        }
+    }
+
+    /// The version and the tick box, at the right of the status bar.
+    fn update_status(&mut self, ui: &mut egui::Ui) {
+        let Some(update) = &mut self.state.update else {
+            return;
+        };
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            let mut on = update.checking();
+            if ui
+                .checkbox(&mut on, "Check for updates when Clone Bay opens")
+                .changed()
+            {
+                update.set_checking(on);
+            }
+            ui.separator();
+            ui.weak(format!("Version {}", update.running()));
+        });
+    }
+
     /// The window's close button: closes, or keeps the window open and
     /// says why (see `State::window_close_requested`).
     fn handle_close(&mut self, ui: &egui::Ui) {
@@ -571,6 +646,7 @@ impl App {
                     ui.separator();
                     ui.weak(note);
                 }
+                self.update_status(ui);
             });
         });
         if !self.state.profiles.is_empty() {
@@ -584,6 +660,7 @@ impl App {
                 .show(ui, |ui| self.details(ui));
         }
         egui::CentralPanel::default().show(ui, |ui| {
+            self.update_notice(ui);
             if let Some(problem) = &self.state.problem {
                 ui.colored_label(ui.visuals().warn_fg_color, problem);
                 ui.add_space(6.0);

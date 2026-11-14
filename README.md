@@ -18,6 +18,7 @@ first time you run it. Choose "More info", then "Run anyway".
 - **Edits probe formations** and shares them with friends.
 - **Puts overview and chat tabs in order.**
 - **Restores a file from one of its backups.**
+- **Updates itself** with one click when a new version is out.
 
 ## Safety
 
@@ -26,7 +27,9 @@ first time you run it. Choose "More info", then "Run anyway".
   the settings folder. To undo, close EVE and choose "Restore from a backup".
 - Anything the app can't read with certainty is left alone.
 
-Character, ship and system names are looked up from CCP's public API; nothing
+Character, ship and system names are looked up from CCP's public API. Once a
+day the app checks GitHub for a newer version, which it installs with one
+click; untick "Check for updates when Clone Bay opens" to stop that. Nothing
 else leaves your PC.
 
 ## Check a download

@@ -3,8 +3,9 @@
 # not run on ordinary pushes.
 #
 #   Push a tag "v<version>"  -> test, build, and open a DRAFT release holding
-#                               the exe and SHA256SUMS.txt. Nothing is public
-#                               until the draft is published by hand.
+#                               the exe, SHA256SUMS.txt and its signature.
+#                               Nothing is public until the draft is
+#                               published by hand.
 #   "Run workflow" button    -> the same test and build, kept as a workflow
 #                               artifact. No tag and no release are made.
 #
@@ -97,6 +98,8 @@ jobs:
           # people who never see the repository.
           Copy-Item LICENSE dist/LICENSE.txt
           Copy-Item THIRD-PARTY-NOTICES.txt dist/THIRD-PARTY-NOTICES.txt
+          # The publish job checks its signature against the key in this.
+          Copy-Item crates/core/src/data/update_keys.txt dist/update_keys.txt
           "asset=$asset" >> $env:GITHUB_OUTPUT
           "### Built ``$asset```n`nSHA-256: ``$hash```n`nCommit: ``$env:GITHUB_SHA``" >> $env:GITHUB_STEP_SUMMARY
 
@@ -129,6 +132,46 @@ jobs:
       - name: Check the exe against its checksum
         working-directory: dist
         run: sha256sum --check --strict SHA256SUMS.txt
+
+      - name: Fetch the signing tool
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # A fixed version, checked against a fixed hash, like the pinned
+          # actions. Update the version and the hash together.
+          gh release download 0.12 --repo jedisct1/minisign \
+            --pattern minisign-0.12-linux.tar.gz --dir "$RUNNER_TEMP"
+          echo "9a599b48ba6eb7b1e80f12f36b94ceca7c00b7a5173c95c3efc88d9822957e73  $RUNNER_TEMP/minisign-0.12-linux.tar.gz" \
+            | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/minisign-0.12-linux.tar.gz" -C "$RUNNER_TEMP" \
+            minisign-linux/x86_64/minisign
+
+      - name: Sign the checksum file
+        env:
+          MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
+        run: |
+          # The app only installs an update whose checksum file carries
+          # this signature.
+          if [ -z "$MINISIGN_SECRET_KEY" ]; then
+            if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+              echo "::error::The MINISIGN_SECRET_KEY secret is missing, so the release can't be signed."
+              exit 1
+            fi
+            echo "No signing key here: the dry run is left unsigned."
+            exit 0
+          fi
+          minisign="$RUNNER_TEMP/minisign-linux/x86_64/minisign"
+          umask 077
+          printf '%s\n' "$MINISIGN_SECRET_KEY" > "$RUNNER_TEMP/release.key"
+          "$minisign" -S -s "$RUNNER_TEMP/release.key" \
+            -m dist/SHA256SUMS.txt -x dist/SHA256SUMS.txt.minisig \
+            -t "clone-bay $GITHUB_REF_NAME"
+          rm "$RUNNER_TEMP/release.key"
+          # Prove it against the key built into the app, so a wrong secret
+          # fails here and not on users' PCs. The file came from the Windows
+          # build job, so strip any carriage return.
+          key=$(grep '^release' dist/update_keys.txt | cut -f 2 | tr -d '\r')
+          "$minisign" -V -P "$key" -m dist/SHA256SUMS.txt -x dist/SHA256SUMS.txt.minisig
 
       - name: Attest build provenance
         if: ${{ !github.event.repository.private }}
@@ -171,4 +214,4 @@ jobs:
             --title "Clone Bay $TAG" \
             --notes-file notes.md \
             --generate-notes \
-            "dist/$ASSET" dist/SHA256SUMS.txt dist/LICENSE.txt dist/THIRD-PARTY-NOTICES.txt
+            "dist/$ASSET" dist/SHA256SUMS.txt dist/SHA256SUMS.txt.minisig dist/LICENSE.txt dist/THIRD-PARTY-NOTICES.txt

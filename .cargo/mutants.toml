@@ -35,6 +35,11 @@ exclude_re = ["delete ! in show_folder"]
 #   them does nothing. (5)
 # - crates/app/src/services.rs (`SystemClipboard`): the real clipboard,
 #   which tests must not touch. (3)
+# - crates/app/src/services.rs (`real_updater`, `release_source`),
+#   crates/core/src/update_sources.rs (`GitHubReleases`) and
+#   crates/core/src/platform.rs (`open_url`, `browser`): the real network,
+#   the running exe and the browser, which tests must not touch. The live
+#   test (`--ignored update_live`) covers fetching from GitHub.
 # - crates/core/src/edit.rs, `filter_parts`: the guard on the name. Every
 #   caller has already been through `filters`, which refuses the same thing.
 # - crates/core/src/edit.rs, `resolve`: the match arm refusing a preset or
