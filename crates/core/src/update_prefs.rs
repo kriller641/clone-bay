@@ -131,6 +131,21 @@ mod tests {
     }
 
     #[test]
+    fn the_last_line_for_the_tick_box_wins() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("update.tsv");
+        std::fs::write(&path, "check\t0\ncheck\t1\n").unwrap();
+        assert!(UpdatePrefs::load(&path).unwrap().check);
+    }
+
+    #[test]
+    fn a_file_that_exists_but_cannot_be_read_is_an_error_not_the_defaults() {
+        let dir = tempfile::tempdir().unwrap();
+        // A folder where the file should be.
+        assert!(UpdatePrefs::load(dir.path()).is_err());
+    }
+
+    #[test]
     fn lines_that_cannot_be_read_are_passed_over() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("update.tsv");

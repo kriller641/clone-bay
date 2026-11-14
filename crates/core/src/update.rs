@@ -580,5 +580,54 @@ mod tests {
         let mut keys = Keys::default();
         assert!(!keys.add("not a key"));
         assert_eq!(keys.len(), 0);
+        assert!(keys.is_empty());
+        assert!(!Keys::built_in().is_empty());
+    }
+
+    /// A stream of `len` zero bytes, offered with its real hash.
+    struct Zeros(u64);
+
+    impl ReleaseSource for Zeros {
+        fn latest_text(&self, _: &str) -> Result<String, UpdateError> {
+            unreachable!()
+        }
+        fn open(&self, _: &Offer) -> Result<Box<dyn std::io::Read>, UpdateError> {
+            Ok(Box::new(std::io::repeat(0).take(self.0)))
+        }
+    }
+
+    fn zeros_offer(len: u64) -> Offer {
+        let mut hasher = Sha256::new();
+        let block = vec![0u8; 1024 * 1024];
+        let mut left = len;
+        while left > 0 {
+            let count = left.min(block.len() as u64);
+            hasher.update(&block[..count as usize]);
+            left -= count;
+        }
+        Offer {
+            version: v("0.1.5"),
+            asset: "clone-bay-v0.1.5-windows-x64.exe".to_owned(),
+            sha256: hasher.finalize().into(),
+        }
+    }
+
+    #[test]
+    fn a_download_of_exactly_50_mb_is_allowed_and_one_byte_more_is_not() {
+        assert_eq!(MAX_DOWNLOAD_BYTES, 50 * 1024 * 1024);
+        let dir = tempfile::tempdir().unwrap();
+        let into = dir.path().join("new.exe");
+        let largest = MAX_DOWNLOAD_BYTES;
+        assert_eq!(
+            download(&Zeros(largest), &zeros_offer(largest), &into, &|_| {}),
+            Ok(())
+        );
+        assert_eq!(std::fs::metadata(&into).unwrap().len(), largest);
+        let over = MAX_DOWNLOAD_BYTES + 1;
+        assert_eq!(
+            download(&Zeros(over), &zeros_offer(over), &into, &|_| {}),
+            Err(UpdateError::TooLarge)
+        );
+        assert!(!into.exists());
     }
 }

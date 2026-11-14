@@ -39,7 +39,16 @@ exclude_re = ["delete ! in show_folder"]
 #   crates/core/src/update_sources.rs (`GitHubReleases`) and
 #   crates/core/src/platform.rs (`open_url`, `browser`): the real network,
 #   the running exe and the browser, which tests must not touch. The live
-#   test (`--ignored update_live`) covers fetching from GitHub.
+#   test (`--ignored update_live`) covers fetching from GitHub. This
+#   includes `MAX_TEXT_BYTES` in `update_sources.rs`. (8)
+# - crates/core/src/update.rs, `hash_bytes`: `|` and `^` give the same
+#   byte, since the two hex digits never share a bit. (1)
+# - crates/core/src/install.rs, `clean_leftovers`: the retries and the
+#   pause between them. A file that can't be deleted for a moment can't be
+#   made in a test without another process holding it open. (6)
+# - crates/core/src/install.rs, `run_check`, and crates/core/src/platform.rs,
+#   `claim_single_window_waiting`: `<` and `<=` against a deadline differ
+#   only at the same instant. (2)
 # - crates/core/src/edit.rs, `filter_parts`: the guard on the name. Every
 #   caller has already been through `filters`, which refuses the same thing.
 # - crates/core/src/edit.rs, `resolve`: the match arm refusing a preset or
