@@ -1380,3 +1380,56 @@ fn the_save_buttons_sit_at_the_bottom_of_the_window() {
         "{room} points above the bottom"
     );
 }
+
+#[test]
+fn a_probe_row_fits_the_window_it_opens_at() {
+    let dir = profile();
+    let ui = editor(dir.path(), EveStatus::NotRunning);
+    let width = crate::app::DEFAULT_WINDOW_SIZE[0];
+    let furthest = ui
+        .get_all_by_label("Remove")
+        .map(|button| button.rect().right())
+        .fold(0.0, f32::max);
+    assert!(
+        furthest > 0.0 && furthest <= width,
+        "a row ends at {furthest}"
+    );
+}
+
+#[test]
+fn the_position_boxes_have_room_for_a_long_number() {
+    let dir = profile();
+    let ui = editor(dir.path(), EveStatus::NotRunning);
+    // A minus sign, five digits, a point and three decimals: the widest
+    // position the boxes are meant to show in full.
+    let style = ui.ctx.global_style();
+    let font = egui::TextStyle::Body.resolve(&style);
+    let text_width = ui.ctx.fonts_mut(|fonts| {
+        fonts
+            .layout_no_wrap("-10559.488".to_owned(), font, egui::Color32::WHITE)
+            .size()
+            .x
+    });
+    let inside = crate::formation_view::COORDINATE_BOX_WIDTH - 2.0 * style.spacing.button_padding.x;
+    assert!(
+        text_width <= inside,
+        "{text_width} points of text in {inside} points of box"
+    );
+}
+
+#[test]
+fn the_launch_note_wraps_in_a_narrow_window() {
+    let dir = profile();
+    let mut ui = editor(dir.path(), EveStatus::NotRunning);
+    click(&mut ui, "skatter  (2 probes)");
+    let narrow = [900.0, 700.0];
+    ui.set_size(egui::Vec2::from(narrow));
+    settle(&mut ui);
+    settle(&mut ui);
+    let note = ui.get_by_label_contains("The game centres a formation");
+    assert!(
+        note.rect().right() <= narrow[0],
+        "the note ends at {}",
+        note.rect().right()
+    );
+}

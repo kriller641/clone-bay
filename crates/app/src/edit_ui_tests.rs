@@ -1661,3 +1661,19 @@ fn the_save_buttons_sit_at_the_bottom_of_the_window() {
         "{room} points above the bottom"
     );
 }
+
+#[test]
+fn add_ship_is_above_the_ships_already_listed() {
+    let dir = profile();
+    let ui = edit_screen(dir.path(), EveStatus::NotRunning, "2");
+    let top_of = |label: &str| {
+        ui.get_all_by_label(label)
+            .map(|node| node.rect().top())
+            .fold(f32::INFINITY, f32::min)
+    };
+    let (add, first_row) = (top_of("Add ship"), top_of("Everything else (default)"));
+    assert!(
+        add < first_row,
+        "Add ship is at {add}, the list starts at {first_row}"
+    );
+}

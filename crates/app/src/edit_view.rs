@@ -577,28 +577,6 @@ fn distances(
         });
     }
     ui.indent(label, |ui| {
-        egui::Grid::new(label).striped(true).show(ui, |ui| {
-            for index in distance_order(entries, names) {
-                let (type_id, metres) = &mut entries[index];
-                ui.label(type_label(names, *type_id));
-                let box_id = ui.id().with(("distance", label, *type_id));
-                changed |= distance_box(ui, box_id, metres, min, max);
-                ui.weak("m");
-                ui.weak(distance_label(*metres));
-                // The default for everything else is always there: it can be
-                // changed but not removed.
-                if !is_removable(*type_id) {
-                    ui.label("");
-                } else if ui
-                    .small_button("Remove")
-                    .on_hover_text("This kind of object goes back to the default distance")
-                    .clicked()
-                {
-                    remove = Some(index);
-                }
-                ui.end_row();
-            }
-        });
         ui.horizontal(|ui| {
             ui.label("Add ship");
             ui.add(
@@ -626,6 +604,29 @@ fn distances(
         if let Some(note) = extras.add_note {
             ui.colored_label(theme::PROBLEM, note);
         }
+        ui.add_space(4.0);
+        egui::Grid::new(label).striped(true).show(ui, |ui| {
+            for index in distance_order(entries, names) {
+                let (type_id, metres) = &mut entries[index];
+                ui.label(type_label(names, *type_id));
+                let box_id = ui.id().with(("distance", label, *type_id));
+                changed |= distance_box(ui, box_id, metres, min, max);
+                ui.weak("m");
+                ui.weak(distance_label(*metres));
+                // The default for everything else is always there: it can be
+                // changed but not removed.
+                if !is_removable(*type_id) {
+                    ui.label("");
+                } else if ui
+                    .small_button("Remove")
+                    .on_hover_text("This kind of object goes back to the default distance")
+                    .clicked()
+                {
+                    remove = Some(index);
+                }
+                ui.end_row();
+            }
+        });
     });
     if let Some(index) = remove {
         entries.remove(index);

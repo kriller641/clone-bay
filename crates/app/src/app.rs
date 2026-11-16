@@ -34,6 +34,9 @@ pub const DEFAULT_WINDOW_SIZE: [f32; 2] = [1560.0, 1280.0];
 /// The smallest the window can be made, in points.
 pub const MIN_WINDOW_SIZE: [f32; 2] = [720.0, 360.0];
 
+/// The width of the panel beside the file list, in points.
+const DETAILS_WIDTH: f32 = 300.0;
+
 pub struct App {
     pub(crate) state: State,
     window_fit: WindowFit,
@@ -311,23 +314,23 @@ impl App {
         ui.add_space(6.0);
 
         let mut chosen = None;
-        ui.horizontal_wrapped(|ui| {
-            for choice in self.state.file_choices() {
-                let button = if choice.primary {
-                    primary_button(choice.label)
-                } else {
-                    egui::Button::new(choice.label)
-                };
-                if ui
-                    .add_enabled(choice.enabled, button)
-                    .on_hover_text(choice.hover)
-                    .on_disabled_hover_text(choice.why_not)
-                    .clicked()
-                {
-                    chosen = Some(choice.action);
-                }
+        // One to a row and all the same width, so they read as a list.
+        let width = ui.available_width();
+        for choice in self.state.file_choices() {
+            let button = if choice.primary {
+                primary_button(choice.label)
+            } else {
+                egui::Button::new(choice.label)
+            };
+            if ui
+                .add_enabled(choice.enabled, button.min_size(egui::vec2(width, 0.0)))
+                .on_hover_text(choice.hover)
+                .on_disabled_hover_text(choice.why_not)
+                .clicked()
+            {
+                chosen = Some(choice.action);
             }
-        });
+        }
         if let Some(action) = chosen {
             self.state.act_on_selected(action);
             return;
@@ -655,8 +658,9 @@ impl App {
                 // Not resizable: there is nothing to gain from a wider panel,
                 // and dragging its edge only snapped back.
                 .resizable(false)
-                .default_size(320.0)
-                .min_size(220.0)
+                // A fixed width: left to size itself, the panel shrank to
+                // its narrowest content and its buttons wrapped unevenly.
+                .exact_size(DETAILS_WIDTH)
                 .show(ui, |ui| self.details(ui));
         }
         egui::CentralPanel::default().show(ui, |ui| {
@@ -1099,6 +1103,28 @@ mod tests {
         assert!(harness.query_by_label("Edit probe formations").is_none());
         choose(&mut harness, at, "Restore from a backup");
         assert!(matches!(harness.state().state.screen, Screen::Restore(_)));
+    }
+
+    #[test]
+    fn a_files_buttons_are_one_to_a_row_and_the_same_width() {
+        let root = eve_root();
+        let mut harness = harness(root.path());
+        // The damaged character file: its buttons used to share a row.
+        click(&mut harness, "22");
+        let rects: Vec<egui::Rect> = [
+            "Copy to other files",
+            "Edit settings",
+            "Order chat tabs",
+            "Restore from a backup",
+        ]
+        .iter()
+        .map(|label| harness.get_by_label(label).rect())
+        .collect();
+        for pair in rects.windows(2) {
+            assert!(pair[1].top() >= pair[0].bottom(), "{pair:?} share a row");
+            assert_eq!(pair[0].left(), pair[1].left());
+            assert_eq!(pair[0].width(), pair[1].width());
+        }
     }
 
     /// The size and position the app asked for on the last frame, if any.

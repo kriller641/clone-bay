@@ -83,10 +83,14 @@ pub fn view_label(view: View) -> &'static str {
     }
 }
 
-/// The width of a position or distance box: room for a signed number of
-/// kilometres with seven or so digits, and narrow enough that a probe's whole
-/// row fits the window at the size it opens at.
-const COORDINATE_BOX_WIDTH: f32 = 70.0;
+/// The width of a position or distance box: room for a minus sign, five
+/// digits and three decimals of kilometres. With the range list at
+/// `RANGE_BOX_WIDTH`, a probe's whole row still fits the window at the size
+/// it opens at.
+pub const COORDINATE_BOX_WIDTH: f32 = 84.0;
+
+/// The width of a probe's scan range list: room for "0.25 AU".
+const RANGE_BOX_WIDTH: f32 = 64.0;
 
 pub fn draw(ui: &mut egui::Ui, flow: &mut FormationFlow) -> Request {
     let mut request = Request::None;
@@ -488,6 +492,7 @@ fn formation_editor(
             }
             egui::ComboBox::from_id_salt(("range", index))
                 .selected_text(range_label(probe.range))
+                .width(RANGE_BOX_WIDTH)
                 .show_ui(ui, |ui| {
                     for option in RANGE_OPTIONS {
                         ui.selectable_value(&mut probe.range, option * AU, format!("{option} AU"));
@@ -591,9 +596,14 @@ fn formation_editor(
     *step = history_buttons(ui, can_undo, can_redo);
     ui.add_space(4.0);
 
-    // The note gets a line of its own so a long one wraps instead of being
-    // cut off at the edge.
-    ui.label(balance_note(formation));
+    // The note wraps at the edge of what is in view. This is inside an area
+    // that scrolls sideways, where a line would otherwise run on past the
+    // window's edge.
+    let in_view = ui.clip_rect().right() - ui.cursor().left();
+    ui.allocate_ui(egui::vec2(in_view, 0.0), |ui| {
+        ui.set_max_width(in_view);
+        ui.add(egui::Label::new(balance_note(formation)).wrap());
+    });
     // In a row of its own so the button keeps its natural width.
     ui.horizontal(|ui| {
         // The hints show whether or not the buttons can be pressed, so
