@@ -12,7 +12,7 @@ use crate::formation_flow::{
 };
 use crate::list_model::counted;
 use crate::viewer::{self, Camera, Picked};
-use crate::widgets::{problem_line, save_buttons, save_messages, typed_number, SaveButton};
+use crate::widgets::{footer, problem_line, save_buttons, save_messages, typed_number, SaveButton};
 
 /// What the user asked for on this frame that the caller has to act on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -109,17 +109,44 @@ pub fn draw(ui: &mut egui::Ui, flow: &mut FormationFlow) -> Request {
         }
     }
 
+    // The messages and buttons first, so they keep their place at the
+    // bottom of the window (see `footer`).
+    footer(ui, |ui| {
+        problem_line(ui, flow.problem.as_deref());
+        if let Some(invalid) = flow.invalid() {
+            ui.colored_label(ui.visuals().warn_fg_color, format!("{invalid}."));
+        }
+        if let Some(note) = &flow.share_note {
+            ui.label(format!("{note}."));
+        }
+        save_messages(ui, &mut flow.saving);
+        let unsaved = flow.is_dirty().then(|| "Changes not saved".to_owned());
+        match save_buttons(ui, flow.busy(), flow.can_save(), flow.is_dirty(), unsaved) {
+            Some(SaveButton::Save) => flow.save(),
+            Some(SaveButton::Discard) => flow.discard(),
+            Some(SaveButton::Back) => request = Request::Close,
+            None => {}
+        }
+    });
+
     // Whatever this frame changes becomes one step that Undo can take back.
     let before = flow.formations.clone();
     let mut typing = false;
     let mut step = None;
-    let body_height = (ui.available_height() - 110.0).max(120.0);
+    let body_height = ui.available_height();
     if flow.readable() {
         ui.columns(2, |columns| {
-            columns[0].set_max_height(body_height);
-            formation_list(&mut columns[0], flow);
-            columns[0].add_space(10.0);
-            picture(&mut columns[0], flow);
+            // Scrolls when the window is too short for the list and the
+            // picture, so neither is drawn over the buttons.
+            egui::ScrollArea::vertical()
+                .id_salt("formation list")
+                .max_height(body_height)
+                .auto_shrink([false, false])
+                .show(&mut columns[0], |ui| {
+                    formation_list(ui, flow);
+                    ui.add_space(10.0);
+                    picture(ui, flow, body_height);
+                });
             // Both ways: in a narrow window a probe's row is wider than
             // the column.
             egui::ScrollArea::both()
@@ -139,23 +166,6 @@ pub fn draw(ui: &mut egui::Ui, flow: &mut FormationFlow) -> Request {
     match step {
         Some(Step::Undo) => flow.undo(),
         Some(Step::Redo) => flow.redo(),
-        None => {}
-    }
-    ui.add_space(6.0);
-
-    problem_line(ui, flow.problem.as_deref());
-    if let Some(invalid) = flow.invalid() {
-        ui.colored_label(ui.visuals().warn_fg_color, format!("{invalid}."));
-    }
-    if let Some(note) = &flow.share_note {
-        ui.label(format!("{note}."));
-    }
-    save_messages(ui, &mut flow.saving);
-    let unsaved = flow.is_dirty().then(|| "Changes not saved".to_owned());
-    match save_buttons(ui, flow.busy(), flow.can_save(), flow.is_dirty(), unsaved) {
-        Some(SaveButton::Save) => flow.save(),
-        Some(SaveButton::Discard) => flow.discard(),
-        Some(SaveButton::Back) => request = Request::Close,
         None => {}
     }
     request
@@ -253,9 +263,10 @@ fn formation_list(ui: &mut egui::Ui, flow: &mut FormationFlow) {
 }
 
 /// Under the list: the formation being shown, as a picture that can be
-/// turned. It sits here, and not under the table of probes, so it stays in
+/// turned, sized to fill what is left of `body_height`, the column's
+/// height. It sits here, and not under the table of probes, so it stays in
 /// sight however long the table is.
-fn picture(ui: &mut egui::Ui, flow: &mut FormationFlow) {
+fn picture(ui: &mut egui::Ui, flow: &mut FormationFlow, body_height: f32) {
     let Some(id) = flow.current else {
         return;
     };
@@ -294,8 +305,10 @@ fn picture(ui: &mut egui::Ui, flow: &mut FormationFlow) {
             }
         }
     });
-    // Leave room underneath for the line of help.
-    let room = egui::vec2(ui.available_width(), ui.available_height() - 24.0);
+    // Inside a scroll area there is no "height left", so it is worked out
+    // from what has been drawn above. 24 is for the line of help below.
+    let left = body_height - ui.min_rect().height() - 24.0;
+    let room = egui::vec2(ui.available_width(), left);
     let size = egui::vec2(
         (room.x * VIEW_SHARE).min(VIEW_MAX_WIDTH),
         (room.y * VIEW_SHARE).clamp(VIEW_MIN_HEIGHT, VIEW_MAX_HEIGHT),

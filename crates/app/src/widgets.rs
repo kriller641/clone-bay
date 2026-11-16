@@ -80,22 +80,6 @@ pub fn save_messages<E: SaveError>(ui: &mut egui::Ui, saving: &mut Saving<E>) {
     }
 }
 
-/// How much room [`problem_line`], [`save_messages`] and [`save_buttons`]
-/// take together.
-pub fn save_footer_height<E: SaveError>(problem: bool, saving: &Saving<E>) -> f32 {
-    let mut height = 48.0;
-    if problem {
-        height += 30.0;
-    }
-    if saving.saved_to.is_some() {
-        height += 30.0;
-    }
-    if saving.needs_eve_confirmation {
-        height += 44.0;
-    }
-    height
-}
-
 /// A button pressed in [`save_buttons`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SaveButton {
@@ -142,6 +126,24 @@ pub fn save_buttons(
         }
     });
     pressed
+}
+
+/// The band along the bottom of a screen that holds its messages and
+/// buttons. Call it before drawing the screen's content: it takes its room
+/// from the bottom first and the content gets what is left, so the buttons
+/// can't be pushed out of the window however small it is.
+pub fn footer<R>(ui: &mut egui::Ui, contents: impl FnOnce(&mut egui::Ui) -> R) -> R {
+    let margin = egui::Margin {
+        top: 6,
+        bottom: 6,
+        ..Default::default()
+    };
+    egui::Panel::bottom("screen footer")
+        .frame(egui::Frame::new().inner_margin(margin))
+        .show_separator_line(false)
+        .resizable(false)
+        .show(ui, contents)
+        .inner
 }
 
 /// Where `remember_typing` notes whether a box had keyboard focus.

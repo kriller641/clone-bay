@@ -13,8 +13,8 @@ use crate::edit_flow::{
 use crate::list_model::{counted, kind_label};
 use crate::theme;
 use crate::widgets::{
-    dot, problem_line, save_buttons, save_footer_height, save_messages, section, section_title,
-    typed_number, SaveButton,
+    dot, footer, problem_line, save_buttons, save_messages, section, section_title, typed_number,
+    SaveButton,
 };
 
 /// The width kept for a setting's name, so the controls line up.
@@ -43,13 +43,24 @@ pub fn draw(ui: &mut egui::Ui, flow: &mut EditFlow, names: &NameBook) -> Request
     ui.heading(egui::RichText::new(title(flow)).strong());
     ui.add_space(6.0);
 
-    // Leave room below the settings for the messages and buttons shown.
-    let below = save_footer_height(flow.problem.is_some(), &flow.saving);
-    let list_height = (ui.available_height() - below).max(60.0);
+    // The messages and buttons first, so they keep their place at the
+    // bottom of the window (see `footer`).
+    footer(ui, |ui| {
+        problem_line(ui, flow.problem.as_deref());
+        save_messages(ui, &mut flow.saving);
+        let changes = flow.changes().len();
+        let unsaved =
+            (changes > 0).then(|| format!("{} not saved", counted(changes, "change", "changes")));
+        match save_buttons(ui, flow.busy(), flow.can_save(), flow.is_dirty(), unsaved) {
+            Some(SaveButton::Save) => flow.save(),
+            Some(SaveButton::Discard) => flow.discard(),
+            Some(SaveButton::Back) => request = Request::Close,
+            None => {}
+        }
+    });
     // The ship picked from a distance list's "Add ship" on this frame.
     let mut add = None;
     egui::ScrollArea::vertical()
-        .max_height(list_height)
         .auto_shrink([false, false])
         .show(ui, |ui| {
             // Rows that share a heading are drawn together as one section.
@@ -92,19 +103,6 @@ pub fn draw(ui: &mut egui::Ui, flow: &mut EditFlow, names: &NameBook) -> Request
         });
     if let Some((row, type_id, name)) = add {
         flow.add_type(row, type_id, name);
-    }
-    ui.add_space(6.0);
-
-    problem_line(ui, flow.problem.as_deref());
-    save_messages(ui, &mut flow.saving);
-    let changes = flow.changes().len();
-    let unsaved =
-        (changes > 0).then(|| format!("{} not saved", counted(changes, "change", "changes")));
-    match save_buttons(ui, flow.busy(), flow.can_save(), flow.is_dirty(), unsaved) {
-        Some(SaveButton::Save) => flow.save(),
-        Some(SaveButton::Discard) => flow.discard(),
-        Some(SaveButton::Back) => request = Request::Close,
-        None => {}
     }
     request
 }

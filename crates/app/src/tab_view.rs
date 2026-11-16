@@ -6,9 +6,7 @@ use eframe::egui;
 
 use crate::list_model::kind_label;
 use crate::tab_flow::TabFlow;
-use crate::widgets::{
-    problem_line, save_buttons, save_footer_height, save_messages, section, SaveButton,
-};
+use crate::widgets::{footer, problem_line, save_buttons, save_messages, section, SaveButton};
 
 /// The width kept for a tab's name, so the buttons line up.
 const NAME_WIDTH: f32 = 260.0;
@@ -82,13 +80,22 @@ pub fn draw(ui: &mut egui::Ui, flow: &mut TabFlow) -> Request {
     ui.heading(egui::RichText::new(title(flow)).strong());
     ui.add_space(6.0);
 
-    // Leave room below the lists for the messages and buttons shown.
-    let below = save_footer_height(flow.problem.is_some(), &flow.saving);
-    let list_height = (ui.available_height() - below).max(60.0);
+    // The messages and buttons first, so they keep their place at the
+    // bottom of the window (see `footer`).
+    footer(ui, |ui| {
+        problem_line(ui, flow.problem.as_deref());
+        save_messages(ui, &mut flow.saving);
+        let unsaved = flow.is_dirty().then(|| "New order not saved".to_owned());
+        match save_buttons(ui, flow.busy(), flow.can_save(), flow.is_dirty(), unsaved) {
+            Some(SaveButton::Save) => flow.save(),
+            Some(SaveButton::Discard) => flow.discard(),
+            Some(SaveButton::Back) => request = Request::Close,
+            None => {}
+        }
+    });
     let mut pressed = None;
     let mut first_tab = false;
     egui::ScrollArea::vertical()
-        .max_height(list_height)
         .auto_shrink([false, false])
         .show(ui, |ui| {
             let Some(layout) = &flow.layout else {
@@ -123,17 +130,6 @@ pub fn draw(ui: &mut egui::Ui, flow: &mut TabFlow) -> Request {
     }
     if first_tab {
         flow.open_on_first_tab();
-    }
-    ui.add_space(6.0);
-
-    problem_line(ui, flow.problem.as_deref());
-    save_messages(ui, &mut flow.saving);
-    let unsaved = flow.is_dirty().then(|| "New order not saved".to_owned());
-    match save_buttons(ui, flow.busy(), flow.can_save(), flow.is_dirty(), unsaved) {
-        Some(SaveButton::Save) => flow.save(),
-        Some(SaveButton::Discard) => flow.discard(),
-        Some(SaveButton::Back) => request = Request::Close,
-        None => {}
     }
     request
 }

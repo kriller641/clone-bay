@@ -1348,3 +1348,35 @@ fn nothing_leaves_the_editor_while_it_saves() {
     press_esc(&mut ui);
     assert!(ui.state().state.formations().is_none());
 }
+
+/// How far the bottom of the widget showing `label` is above the bottom of
+/// a window `height` points tall. Negative means it is out of sight.
+fn room_below(ui: &Ui, label: &str, height: f32) -> f32 {
+    height - ui.get_by_label(label).rect().bottom()
+}
+
+#[test]
+fn the_save_buttons_stay_in_the_window_at_its_smallest() {
+    let dir = profile();
+    let mut ui = editor(dir.path(), EveStatus::NotRunning);
+    let smallest = crate::app::MIN_WINDOW_SIZE;
+    ui.set_size(egui::Vec2::from(smallest));
+    settle(&mut ui);
+    settle(&mut ui);
+    for label in ["Save changes", "Discard changes", "Back to the file list"] {
+        let room = room_below(&ui, label, smallest[1]);
+        assert!(room >= 0.0, "{label} is {room} points below the window");
+    }
+}
+
+#[test]
+fn the_save_buttons_sit_at_the_bottom_of_the_window() {
+    let dir = profile();
+    let ui = editor(dir.path(), EveStatus::NotRunning);
+    let height = crate::app::DEFAULT_WINDOW_SIZE[1];
+    let room = room_below(&ui, "Save changes", height);
+    assert!(
+        (0.0..=24.0).contains(&room),
+        "{room} points above the bottom"
+    );
+}

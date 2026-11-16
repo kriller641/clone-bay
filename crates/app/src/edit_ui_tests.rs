@@ -1649,3 +1649,15 @@ fn the_window_stays_open_while_a_save_runs() {
     });
     assert!(!press_window_close(&mut ui));
 }
+
+#[test]
+fn the_save_buttons_sit_at_the_bottom_of_the_window() {
+    let dir = profile();
+    let ui = edit_screen(dir.path(), EveStatus::NotRunning, "1");
+    let height = crate::app::DEFAULT_WINDOW_SIZE[1];
+    let room = height - ui.get_by_label("Save changes").rect().bottom();
+    assert!(
+        (0.0..=24.0).contains(&room),
+        "{room} points above the bottom"
+    );
+}

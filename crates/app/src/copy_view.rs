@@ -12,7 +12,7 @@ use crate::copy_flow::{ChatPicker, CopyFlow, Stage};
 use crate::list_model::{counted, format_age, format_size, kind_label, SortColumn};
 use crate::theme::{self, ROW_HEIGHT};
 use crate::widgets::{
-    eve_closed_box, marker, note, primary_button, problem_line, sort_header, steps,
+    eve_closed_box, footer, marker, note, primary_button, problem_line, sort_header, steps,
 };
 
 /// The steps of a copy, as shown at the top of every copy screen.
@@ -121,6 +121,11 @@ pub fn draw(ui: &mut egui::Ui, flow: &mut CopyFlow) -> Request {
         Stage::Copying => working(ui, "Copying", flow.progress()),
         Stage::Reviewing(_) => request = reviewing(ui, flow),
         Stage::Done(result) => {
+            footer(ui, |ui| {
+                if ui.button("Back to the file list").clicked() {
+                    request = Request::Close;
+                }
+            });
             let mut every_file = flow.show_every_file;
             match result {
                 Ok(report) => done(ui, report, &|path| flow.name_of(path), &mut every_file),
@@ -130,10 +135,6 @@ pub fn draw(ui: &mut egui::Ui, flow: &mut CopyFlow) -> Request {
                 }
             }
             flow.show_every_file = every_file;
-            ui.add_space(8.0);
-            if ui.button("Back to the file list").clicked() {
-                request = Request::Close;
-            }
         }
     }
     request
@@ -166,32 +167,34 @@ fn picking(ui: &mut egui::Ui, flow: &mut CopyFlow) -> Request {
     }
 
     problem_line(ui, flow.choice_problem.as_deref());
-    // Leave room below the two lists for the buttons.
-    let list_height = (ui.available_height() - 48.0).max(ROW_HEIGHT * 3.0);
+    // The buttons first, so they keep their place at the bottom of the
+    // window (see `footer`).
+    footer(ui, |ui| {
+        ui.horizontal(|ui| {
+            let check = ui.add_enabled(flow.can_check(), primary_button("Check files"));
+            if check
+                .on_hover_text("Looks at each file and shows what would happen. Changes nothing.")
+                .clicked()
+            {
+                flow.start_plan();
+            }
+            if ui.button("Cancel").clicked() {
+                request = Request::Close;
+            }
+            ui.label(format!(
+                "{} ticked",
+                counted(flow.ticked(), "file", "files")
+            ));
+            if !flow.scope.chooses_something() {
+                ui.weak("Nothing is chosen to copy.");
+            }
+        });
+    });
+    let list_height = ui.available_height().max(ROW_HEIGHT * 3.0);
     ui.columns(2, |columns| {
         columns[0].set_max_height(list_height);
         scope_picker(&mut columns[0], flow);
         target_picker(&mut columns[1], flow, list_height);
-    });
-    ui.add_space(6.0);
-    ui.horizontal(|ui| {
-        let check = ui.add_enabled(flow.can_check(), primary_button("Check files"));
-        if check
-            .on_hover_text("Looks at each file and shows what would happen. Changes nothing.")
-            .clicked()
-        {
-            flow.start_plan();
-        }
-        if ui.button("Cancel").clicked() {
-            request = Request::Close;
-        }
-        ui.label(format!(
-            "{} ticked",
-            counted(flow.ticked(), "file", "files")
-        ));
-        if !flow.scope.chooses_something() {
-            ui.weak("Nothing is chosen to copy.");
-        }
     });
     request
 }
@@ -369,13 +372,15 @@ pub fn review_rows(plan: &CopyPlan, every_file: bool) -> Vec<usize> {
 
 fn reviewing(ui: &mut egui::Ui, flow: &mut CopyFlow) -> Request {
     let mut request = Request::None;
-    let Stage::Reviewing(plan) = &flow.stage else {
-        return request;
-    };
-    ui.strong(review_headline(plan));
-    ui.label(format!("Copying: {}.", flow.scope.summary()));
-    if plan.resets_overview_tab() {
-        ui.label(FIRST_TAB_NOTE);
+    {
+        let Stage::Reviewing(plan) = &flow.stage else {
+            return request;
+        };
+        ui.strong(review_headline(plan));
+        ui.label(format!("Copying: {}.", flow.scope.summary()));
+        if plan.resets_overview_tab() {
+            ui.label(FIRST_TAB_NOTE);
+        }
     }
     note(ui, theme::NOTE, |ui| {
         ui.strong("Nothing has been changed yet.");
@@ -386,14 +391,33 @@ fn reviewing(ui: &mut egui::Ui, flow: &mut CopyFlow) -> Request {
     });
     ui.add_space(6.0);
 
-    // Leave room below the list for what is shown under it.
-    let mut below = 44.0 + ROW_HEIGHT;
-    if flow.refusal.is_some() {
-        below += 30.0;
-    }
-    if flow.needs_eve_confirmation {
-        below += 44.0;
-    }
+    // The buttons first, so they keep their place at the bottom (see
+    // `footer`). Pressing one may end the review, so the plan is looked at
+    // again below.
+    footer(ui, |ui| {
+        if let Some(refusal) = &flow.refusal {
+            ui.colored_label(ui.visuals().error_fg_color, format!("{refusal}."));
+        }
+        if flow.needs_eve_confirmation {
+            eve_closed_box(ui, &mut flow.eve_closed_confirmed);
+        }
+        ui.horizontal(|ui| {
+            let copy = ui.add_enabled(flow.can_copy(), primary_button("Copy now"));
+            if copy.clicked() {
+                flow.start_copy();
+            }
+            if ui.button("Back").clicked() {
+                flow.back_to_picking();
+            }
+            if ui.button("Cancel").clicked() {
+                request = Request::Close;
+            }
+        });
+    });
+    let Stage::Reviewing(plan) = &flow.stage else {
+        return request;
+    };
+
     // Only the files that won't be copied onto are listed, unless the user
     // asks for all of them: hundreds of lines saying the same thing hide the
     // few that matter.
@@ -406,9 +430,7 @@ fn reviewing(ui: &mut egui::Ui, flow: &mut CopyFlow) -> Request {
             ui.weak("Only the files that will be skipped are listed.");
         }
     });
-    let list_height = (ui.available_height() - below).max(ROW_HEIGHT * 3.0);
     egui::ScrollArea::vertical()
-        .max_height(list_height)
         .auto_shrink([false, false])
         .show_rows(ui, ROW_HEIGHT, rows.len(), |ui, range| {
             egui::Grid::new("plan").striped(true).show(ui, |ui| {
@@ -425,26 +447,6 @@ fn reviewing(ui: &mut egui::Ui, flow: &mut CopyFlow) -> Request {
                 }
             });
         });
-    ui.add_space(6.0);
-
-    if let Some(refusal) = &flow.refusal {
-        ui.colored_label(ui.visuals().error_fg_color, format!("{refusal}."));
-    }
-    if flow.needs_eve_confirmation {
-        eve_closed_box(ui, &mut flow.eve_closed_confirmed);
-    }
-    ui.horizontal(|ui| {
-        let copy = ui.add_enabled(flow.can_copy(), primary_button("Copy now"));
-        if copy.clicked() {
-            flow.start_copy();
-        }
-        if ui.button("Back").clicked() {
-            flow.back_to_picking();
-        }
-        if ui.button("Cancel").clicked() {
-            request = Request::Close;
-        }
-    });
     request
 }
 
@@ -484,9 +486,7 @@ fn done<'a>(
             ui.weak("Only the files that were not copied onto are listed.");
         }
     });
-    let list_height = (ui.available_height() - 48.0 - ROW_HEIGHT).max(ROW_HEIGHT * 3.0);
     egui::ScrollArea::vertical()
-        .max_height(list_height)
         .auto_shrink([false, false])
         .show_rows(ui, ROW_HEIGHT, rows.len(), |ui, range| {
             egui::Grid::new("outcomes").striped(true).show(ui, |ui| {

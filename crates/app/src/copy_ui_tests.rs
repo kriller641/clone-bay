@@ -1374,3 +1374,23 @@ fn closing_the_window_remembers_the_choice() {
     assert!(!flow(&ui).scope.everything);
     assert!(!flow(&ui).scope.everything_else);
 }
+
+#[test]
+fn the_buttons_sit_at_the_bottom_on_every_step() {
+    let dir = profile();
+    let mut ui = copy_screen(dir.path(), EveStatus::NotRunning);
+    let height = crate::app::DEFAULT_WINDOW_SIZE[1];
+    let room = |ui: &Ui, label: &str| height - ui.get_by_label(label).rect().bottom();
+    let at_bottom = |room: f32| (0.0..=24.0).contains(&room);
+
+    let picking = room(&ui, "Check files");
+    click(&mut ui, "Tick all shown");
+    check_files(&mut ui);
+    let reviewing = room(&ui, "Copy now");
+    copy_now(&mut ui);
+    let done = room(&ui, "Back to the file list");
+    assert!(
+        at_bottom(picking) && at_bottom(reviewing) && at_bottom(done),
+        "picking {picking}, reviewing {reviewing}, done {done}"
+    );
+}
