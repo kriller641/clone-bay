@@ -111,6 +111,8 @@ pub fn source_title(flow: &CopyFlow) -> String {
 
 pub fn draw(ui: &mut egui::Ui, flow: &mut CopyFlow) -> Request {
     let mut request = Request::None;
+    // "Open the backup folder", acted on once the report is drawn.
+    let mut open_backups = false;
     ui.add_space(4.0);
     steps(ui, &STEPS, flow.stage.step());
     ui.heading(egui::RichText::new(source_title(flow)).strong());
@@ -122,13 +124,16 @@ pub fn draw(ui: &mut egui::Ui, flow: &mut CopyFlow) -> Request {
         Stage::Reviewing(_) => request = reviewing(ui, flow),
         Stage::Done(result) => {
             footer(ui, |ui| {
+                problem_line(ui, flow.folder_problem.as_deref());
                 if ui.button("Back to the file list").clicked() {
                     request = Request::Close;
                 }
             });
             let mut every_file = flow.show_every_file;
             match result {
-                Ok(report) => done(ui, report, &|path| flow.name_of(path), &mut every_file),
+                Ok(report) => {
+                    open_backups = done(ui, report, &|path| flow.name_of(path), &mut every_file);
+                }
                 Err(reason) => {
                     let reason = crate::state::capitalise(reason);
                     ui.colored_label(ui.visuals().error_fg_color, format!("{reason}."));
@@ -136,6 +141,9 @@ pub fn draw(ui: &mut egui::Ui, flow: &mut CopyFlow) -> Request {
             }
             flow.show_every_file = every_file;
         }
+    }
+    if open_backups {
+        flow.show_backups();
     }
     request
 }
@@ -463,17 +471,22 @@ fn done<'a>(
     report: &CopyReport,
     name_of: &dyn Fn(&Path) -> Option<&'a str>,
     every_file: &mut bool,
-) {
+) -> bool {
     if report.failed() > 0 {
         ui.colored_label(ui.visuals().error_fg_color, result_headline(report));
     } else {
         ui.strong(result_headline(report));
     }
     ui.label("The originals were saved in:");
-    ui.monospace(report.backup_dir.display().to_string());
-    ui.weak(
-        "To undo: with EVE closed, copy the files from that folder back into the profile folder.",
-    );
+    let mut open = false;
+    ui.horizontal_wrapped(|ui| {
+        ui.monospace(report.backup_dir.display().to_string());
+        open = ui
+            .button("Open the backup folder")
+            .on_hover_text("Shows the folder in File Explorer")
+            .clicked();
+    });
+    ui.weak("To undo a file: select it in the file list and choose \"Restore from a backup\".");
     ui.add_space(6.0);
     // As on the review: the headline is the summary, and only the files
     // that were not copied onto are listed unless all are asked for.
@@ -503,6 +516,7 @@ fn done<'a>(
                 }
             });
         });
+    open
 }
 
 #[cfg(test)]
@@ -568,7 +582,9 @@ mod tests {
             "Copied to 2 files. 1 file skipped. 1 file could not be copied."
         );
 
-        let harness = Harness::new_ui(|ui| done(ui, &mixed, &|_| None, &mut false));
+        let harness = Harness::new_ui(|ui| {
+            done(ui, &mixed, &|_| None, &mut false);
+        });
         harness.get_by_label("Only the files that were not copied onto are listed.");
         harness.get_by_label("core_user_1.dat");
         harness.get_by_label("core_user_2.dat");
@@ -578,7 +594,9 @@ mod tests {
 
         let clean = report(&[Outcome::Written, Outcome::Written]);
         assert!(result_rows(&clean, false).is_empty());
-        let harness = Harness::new_ui(|ui| done(ui, &clean, &|_| None, &mut false));
+        let harness = Harness::new_ui(|ui| {
+            done(ui, &clean, &|_| None, &mut false);
+        });
         harness.get_by_label("Copied to 2 files.");
         harness.get_by_label("Every file was copied onto.");
         assert!(harness.query_by_label("core_user_0.dat").is_none());
@@ -596,7 +614,9 @@ mod tests {
                 .then_some("Second account")
         };
         // With every file asked for.
-        let harness = Harness::new_ui(|ui| done(ui, &report, &name_of, &mut true));
+        let harness = Harness::new_ui(|ui| {
+            done(ui, &report, &name_of, &mut true);
+        });
         harness.get_by_label("Copied to 1 file. 1 file skipped. 1 file could not be copied.");
         harness.get_by_label("backups");
         harness.get_by_label("core_user_0.dat");

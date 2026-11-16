@@ -1394,3 +1394,53 @@ fn the_buttons_sit_at_the_bottom_on_every_step() {
         "picking {picking}, reviewing {reviewing}, done {done}"
     );
 }
+
+/// Copies account 1 onto every other account, with `services`.
+fn copied_with(dir: &Path, services: Services) -> Ui {
+    let mut ui = harness_with(dir, services);
+    click(&mut ui, "1");
+    click(&mut ui, "Copy to other files");
+    click(&mut ui, "Tick all shown");
+    check_files(&mut ui);
+    copy_now(&mut ui);
+    ui
+}
+
+#[test]
+fn the_result_screen_opens_the_backup_folder_and_points_to_restore() {
+    let dir = profile();
+    let shown = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let record = Arc::clone(&shown);
+    let services = Services {
+        show_folder: Arc::new(move |folder| {
+            record.lock().unwrap().push(folder.to_path_buf());
+            Ok(())
+        }),
+        ..services(EveStatus::NotRunning)
+    };
+    let mut ui = copied_with(dir.path(), services);
+    ui.get_by_label(
+        "To undo a file: select it in the file list and choose \"Restore from a backup\".",
+    );
+    click(&mut ui, "Open the backup folder");
+    let Stage::Done(Ok(report)) = &flow(&ui).stage else {
+        panic!("the copy should have finished");
+    };
+    assert_eq!(
+        *shown.lock().unwrap(),
+        std::slice::from_ref(&report.backup_dir)
+    );
+    assert_eq!(flow(&ui).folder_problem, None);
+}
+
+#[test]
+fn a_backup_folder_that_cannot_be_opened_says_why() {
+    let dir = profile();
+    let services = Services {
+        show_folder: Arc::new(|_| Err("the folder X isn't there any more".to_owned())),
+        ..services(EveStatus::NotRunning)
+    };
+    let mut ui = copied_with(dir.path(), services);
+    click(&mut ui, "Open the backup folder");
+    ui.get_by_label("Couldn't open the folder: the folder X isn't there any more.");
+}

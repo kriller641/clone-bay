@@ -224,6 +224,8 @@ pub struct CopyFlow {
     pub stage: Stage,
     /// Why the last attempt to copy was refused, shown on the review screen.
     pub refusal: Option<String>,
+    /// Why the backup folder couldn't be opened from the result screen.
+    pub folder_problem: Option<String>,
     /// Whether the review lists every file, or only the ones that will be
     /// skipped.
     pub show_every_file: bool,
@@ -292,6 +294,7 @@ impl CopyFlow {
             anchor: None,
             stage: Stage::Picking,
             refusal: None,
+            folder_problem: None,
             show_every_file: false,
             needs_eve_confirmation: false,
             eve_closed_confirmed: false,
@@ -378,6 +381,18 @@ impl CopyFlow {
             .iter()
             .find(|candidate| candidate.entry.path == path)
             .and_then(|candidate| candidate.name.as_deref())
+    }
+
+    /// Opens the folder the finished copy saved the originals in, in the
+    /// system's file manager.
+    pub fn show_backups(&mut self) {
+        let Stage::Done(Ok(report)) = &self.stage else {
+            return;
+        };
+        let opened = (self.services.show_folder)(&report.backup_dir);
+        self.folder_problem = opened
+            .err()
+            .map(|error| format!("couldn't open the folder: {error}"));
     }
 
     /// Ticks or unticks every usable candidate matching the search.
