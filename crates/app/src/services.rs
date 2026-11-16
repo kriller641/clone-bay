@@ -12,6 +12,7 @@ use clone_bay_core::update::{Keys, ReleaseSource, Version};
 const NAMES_FILE: &str = "names.tsv";
 const COPY_CHOICES_FILE: &str = "copy_choices.tsv";
 const UPDATE_FILE: &str = "update.tsv";
+const ABOUT_SEEN_FILE: &str = "about_seen.txt";
 /// Long enough for antivirus to scan a new exe before it starts.
 const SELF_TEST_LIMIT: std::time::Duration = std::time::Duration::from_secs(30);
 
@@ -36,6 +37,13 @@ pub struct Services {
     /// Opens a folder in the system's file manager. Errors are in plain
     /// words for showing to the user.
     pub show_folder: Arc<ShowFolder>,
+    /// Opens a web page in the browser. Errors are in plain words for
+    /// showing to the user.
+    pub open_link: Arc<OpenLink>,
+    /// Where it is recorded that the About page has been shown, so it opens
+    /// by itself only the first time. `None` means it never opens by
+    /// itself.
+    pub about_seen_file: Option<PathBuf>,
     /// Looking for and installing updates. `None` means the app never
     /// looks.
     pub updater: Option<Updater>,
@@ -72,6 +80,9 @@ pub type ExeAction = dyn Fn(&Path, &str) -> Result<(), String> + Send + Sync;
 
 /// Opens a folder in the system's file manager.
 pub type ShowFolder = dyn Fn(&Path) -> Result<(), String> + Send + Sync;
+
+/// Opens a web page in the browser.
+pub type OpenLink = dyn Fn(&str) -> Result<(), String> + Send + Sync;
 
 /// The text clipboard. Errors are in plain words for showing to the user.
 pub trait Clipboard {
@@ -114,6 +125,11 @@ impl Services {
             show_folder: Arc::new(|folder| {
                 clone_bay_core::platform::show_folder(folder).map_err(|error| error.to_string())
             }),
+            open_link: Arc::new(|url| {
+                clone_bay_core::platform::open_url(url).map_err(|error| error.to_string())
+            }),
+            about_seen_file: clone_bay_core::platform::app_data_dir()
+                .map(|folder| folder.join(ABOUT_SEEN_FILE)),
             updater: real_updater(),
         }
     }
@@ -391,6 +407,8 @@ pub mod test_support {
                 copy_choices_file: None,
                 clipboard: Arc::new(FakeClipboard::default()),
                 show_folder: Arc::new(|_| Ok(())),
+                open_link: Arc::new(|_| Ok(())),
+                about_seen_file: None,
                 updater: None,
             }
         }

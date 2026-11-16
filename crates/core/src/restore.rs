@@ -112,6 +112,34 @@ pub fn list_backups(file: &Path) -> Vec<Backup> {
 }
 
 /// The folders directly inside `folder`, by name.
+/// The folder inside a profile folder that every backup goes in now.
+pub fn backups_folder(profile: &Path) -> PathBuf {
+    profile.join(BACKUP_ROOTS[0])
+}
+
+/// The backups in a profile's [`backups_folder`]: one folder for each time
+/// the app was opened and changed files there.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BackupRuns {
+    /// How many backup folders there are.
+    pub count: usize,
+    /// When the newest was made, from the folders' names, in local time.
+    /// `None` when there are none, or no name says.
+    pub newest: Option<NaiveDateTime>,
+}
+
+/// Counts the backup folders in `profile`'s [`backups_folder`]. A folder
+/// that doesn't exist or can't be read holds none.
+pub fn backup_runs(profile: &Path) -> BackupRuns {
+    let names: Vec<String> = sub_folders(&backups_folder(profile))
+        .map(|(name, _)| name)
+        .collect();
+    BackupRuns {
+        count: names.len(),
+        newest: names.iter().filter_map(|name| parse_stamp(name).0).max(),
+    }
+}
+
 fn sub_folders(folder: &Path) -> impl Iterator<Item = (String, PathBuf)> {
     fs::read_dir(folder)
         .into_iter()
@@ -192,5 +220,31 @@ mod tests {
         assert_eq!(parse_stamp(""), (None, 1));
         // A multi-byte character where the stamp would end isn't a panic.
         assert_eq!(parse_stamp("20261031-17440é"), (None, 1));
+    }
+
+    #[test]
+    fn backup_folders_are_counted_with_the_newest_time() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = backups_folder(dir.path());
+        assert_eq!(folder, dir.path().join("clone-bay-backups"));
+        assert_eq!(
+            backup_runs(dir.path()),
+            BackupRuns {
+                count: 0,
+                newest: None
+            }
+        );
+        for name in ["20261031-090000", "20261031-174405-2", "undated"] {
+            fs::create_dir_all(folder.join(name)).unwrap();
+        }
+        // A file beside the folders isn't a backup folder.
+        fs::write(folder.join("notes.txt"), b"x").unwrap();
+        assert_eq!(
+            backup_runs(dir.path()),
+            BackupRuns {
+                count: 3,
+                newest: at(17, 44, 5)
+            }
+        );
     }
 }

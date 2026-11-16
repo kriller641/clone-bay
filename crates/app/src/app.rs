@@ -9,6 +9,7 @@ use clone_bay_core::platform::default_eve_root;
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
 
+use crate::about_view;
 use crate::copy_view;
 use crate::edit_view;
 use crate::formation_view;
@@ -505,22 +506,32 @@ impl App {
         }
     }
 
-    /// The version and the tick box, at the right of the status bar.
+    /// The version, the About button and the tick box, at the right of the
+    /// status bar.
     fn update_status(&mut self, ui: &mut egui::Ui) {
-        let Some(update) = &mut self.state.update else {
-            return;
-        };
+        let mut about = false;
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            let mut on = update.checking();
-            if ui
-                .checkbox(&mut on, "Check for updates when Clone Bay opens")
-                .changed()
-            {
-                update.set_checking(on);
+            if let Some(update) = &mut self.state.update {
+                let mut on = update.checking();
+                if ui
+                    .checkbox(&mut on, "Check for updates when Clone Bay opens")
+                    .changed()
+                {
+                    update.set_checking(on);
+                }
+                ui.separator();
             }
-            ui.separator();
-            ui.weak(format!("Version {}", update.running()));
+            about = ui
+                .button("About")
+                .on_hover_text("What Clone Bay does, where your backups are, and the credits")
+                .clicked();
+            if let Some(update) = &self.state.update {
+                ui.weak(format!("Version {}", update.running()));
+            }
         });
+        if about {
+            self.state.open_about();
+        }
     }
 
     /// The window's close button: closes, or keeps the window open and
@@ -618,6 +629,12 @@ impl App {
                     .show(ui, |ui| copy_view::draw(ui, flow))
                     .inner
                     == copy_view::Request::Close,
+            ),
+            Screen::About(flow) => Some(
+                egui::CentralPanel::default()
+                    .show(ui, |ui| about_view::draw(ui, flow))
+                    .inner
+                    == about_view::Request::Close,
             ),
         };
         if let Some(close) = close {

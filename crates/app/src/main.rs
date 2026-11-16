@@ -7,6 +7,10 @@
 // No console window behind the app in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod about_flow;
+#[cfg(test)]
+mod about_ui_tests;
+mod about_view;
 mod app;
 mod copy_flow;
 #[cfg(test)]

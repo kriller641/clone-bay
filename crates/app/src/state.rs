@@ -5,11 +5,13 @@ use std::sync::mpsc::{self, Receiver};
 use std::sync::Arc;
 use std::thread;
 
+use clone_bay_core::about_seen;
 use clone_bay_core::discovery::{
     default_profile_index, list_settings_files, locate_profiles, FileKind, Profile,
 };
 use clone_bay_core::names::{look_up, Lookup, NameBook};
 
+use crate::about_flow::AboutFlow;
 use crate::copy_flow::{CopyFlow, Stage};
 use crate::edit_flow::EditFlow;
 use crate::formation_flow::FormationFlow;
@@ -38,6 +40,8 @@ pub enum Screen {
     Tabs(TabFlow),
     /// Putting one file back from a backup.
     Restore(RestoreFlow),
+    /// What the app is, where the backups are, and the credits.
+    About(AboutFlow),
 }
 
 /// What a question about losing unsaved changes is about.
@@ -187,7 +191,32 @@ impl State {
                 );
             }
         }
+        state.show_about_the_first_time();
         state
+    }
+
+    /// Opens the About page if it has never been shown, and records that it
+    /// has been. If that can't be recorded it opens again next time, which
+    /// is harmless; if it can't be told whether it was shown, it isn't, so
+    /// a broken app folder never makes it open every time.
+    fn show_about_the_first_time(&mut self) {
+        let Some(file) = self.services.about_seen_file.clone() else {
+            return;
+        };
+        if about_seen::seen(&file).unwrap_or(true) {
+            return;
+        }
+        self.open_about();
+        // Ignored on purpose: see above.
+        let _ = about_seen::mark_seen(&file);
+    }
+
+    /// Opens the About page, about the profile the file list shows.
+    pub fn open_about(&mut self) {
+        let profile = self
+            .selected_profile
+            .and_then(|index| self.profiles.get(index));
+        self.screen = Screen::About(AboutFlow::new(profile, self.services.clone()));
     }
 
     /// Looks for settings profiles at `folder` and shows the first one.
@@ -635,6 +664,7 @@ impl State {
             Screen::Formations(flow) => flow.busy(),
             Screen::Tabs(flow) => flow.busy(),
             Screen::Restore(flow) => flow.busy(),
+            Screen::About(_) => false,
         }
     }
 
@@ -644,7 +674,7 @@ impl State {
             Screen::Edit(flow) => flow.is_dirty(),
             Screen::Formations(flow) => flow.is_dirty(),
             Screen::Tabs(flow) => flow.is_dirty(),
-            Screen::Files | Screen::Copy(_) | Screen::Restore(_) => false,
+            Screen::Files | Screen::Copy(_) | Screen::Restore(_) | Screen::About(_) => false,
         }
     }
 
@@ -769,6 +799,7 @@ impl State {
             Screen::Formations(flow) => (flow.busy(), flow.changed_file()),
             Screen::Tabs(flow) => (flow.busy(), flow.changed_file()),
             Screen::Restore(flow) => (flow.busy(), flow.changed_file()),
+            Screen::About(_) => (false, false),
         };
         if busy {
             return;
@@ -788,6 +819,14 @@ impl State {
         }
         if let Some(problem) = choice_problem {
             self.problem = Some(format!("{}.", capitalise(&problem)));
+        }
+    }
+
+    #[cfg(test)]
+    pub fn about(&self) -> Option<&AboutFlow> {
+        match &self.screen {
+            Screen::About(flow) => Some(flow),
+            _ => None,
         }
     }
 
@@ -923,7 +962,7 @@ impl State {
             self.restart_for_update();
         }
         match &mut self.screen {
-            Screen::Files => {}
+            Screen::Files | Screen::About(_) => {}
             Screen::Copy(flow) => flow.poll(),
             Screen::Edit(flow) => flow.poll(),
             Screen::Formations(flow) => flow.poll(),
