@@ -48,6 +48,13 @@ mod tests {
     }
 
     #[test]
+    fn a_file_that_cannot_be_checked_is_an_error_not_unseen() {
+        // A name no file system accepts fails with something other than
+        // "not found", so it can't be read as "never shown".
+        assert!(seen(Path::new("about\0seen.txt")).is_err());
+    }
+
+    #[test]
     fn a_folder_that_cannot_be_made_is_an_error() {
         let dir = tempfile::tempdir().unwrap();
         let not_a_folder = dir.path().join("clone-bay");

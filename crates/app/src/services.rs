@@ -174,10 +174,12 @@ fn real_updater() -> Option<Updater> {
 /// a folder instead, to try a whole update before a release depends on
 /// it; a release build ignores the override.
 fn release_source() -> (Arc<dyn ReleaseSource + Send + Sync>, Keys) {
-    use clone_bay_core::update_sources::{FolderSource, GitHubReleases};
+    use clone_bay_core::update_sources::GitHubReleases;
 
     #[cfg(debug_assertions)]
     if let Some(folder) = std::env::var_os("CLONE_BAY_UPDATE_DIR") {
+        use clone_bay_core::update_sources::FolderSource;
+
         let mut keys = Keys::built_in();
         if let Ok(key) = std::env::var("CLONE_BAY_UPDATE_KEY") {
             keys.add(&key);

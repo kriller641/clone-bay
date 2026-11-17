@@ -639,7 +639,7 @@ dependencies = [
 
 [[package]]
 name = "clone-bay"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "arboard",
  "clone-bay-core",
@@ -654,7 +654,7 @@ dependencies = [
 
 [[package]]
 name = "clone-bay-core"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "blue-marshal",
  "chrono",
@@ -671,7 +671,7 @@ dependencies = [
 
 [[package]]
 name = "clone-bay-marshal"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "blue-marshal",
  "proptest",
